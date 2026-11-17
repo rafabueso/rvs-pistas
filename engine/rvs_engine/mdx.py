@@ -13,7 +13,7 @@ HOP = 1024
 
 class MDXModel:
     def __init__(self, path: str, n_fft: int, dim_f: int, dim_t: int = 256,
-                 compensate: float = 1.0, threads: Optional[int] = None):
+                 compensate: float = 1.0, threads: Optional[int] = None, denoise: bool = False):
         import onnxruntime as ort
 
         opts = ort.SessionOptions()
@@ -22,6 +22,7 @@ class MDXModel:
         self.session = ort.InferenceSession(path, opts, providers=["CPUExecutionProvider"])
         self.input_name = self.session.get_inputs()[0].name
         self.n_fft, self.dim_f, self.dim_t, self.compensate = n_fft, dim_f, dim_t, compensate
+        self.denoise = denoise
         self.n_bins = n_fft // 2 + 1
         self.trim = n_fft // 2
         self.chunk = HOP * (dim_t - 1)
@@ -53,11 +54,18 @@ class MDXModel:
         out /= np.maximum(self._wsum, 1e-8)
         return out[:, self.trim:-self.trim]
 
-    def _run(self, chunk: np.ndarray) -> np.ndarray:
+    def _run1(self, chunk: np.ndarray) -> np.ndarray:
         spec = self.stft(chunk)
         spec[:, :3, :] = 0.0  # quita los 3 primeros bins, como UVR
         pred = self.session.run(None, {self.input_name: spec[None]})[0][0]
         return self.istft(pred)
+
+    def _run(self, chunk: np.ndarray) -> np.ndarray:
+        if not self.denoise:
+            return self._run1(chunk)
+        # Como el "denoise" de UVR: se separa el trozo y su inverso y se promedian;
+        # el ruido propio del modelo se cancela y quedan menos restos de voz.
+        return (self._run1(chunk) - self._run1(-chunk)) * 0.5
 
     # -- separación completa ------------------------------------------
     def separate(self, mix: np.ndarray, overlap: float = 0.25,

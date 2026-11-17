@@ -15,10 +15,10 @@ from .mdx import MDXModel
 AUDIO_EXT = {".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".mp4", ".mov", ".mkv", ".webm"}
 
 
-def _load(key: str, models_dir: str, stage: str, lo: float, hi: float) -> MDXModel:
+def _load(key: str, models_dir: str, stage: str, lo: float, hi: float, denoise: bool = False) -> MDXModel:
     path = models.ensure_model(key, models_dir, lambda p: progress(stage, lo + (hi - lo) * p, "Preparando el modelo"))
     spec = models.MODELS[key]
-    return MDXModel(path, spec["n_fft"], spec["dim_f"], spec["dim_t"], spec["compensate"])
+    return MDXModel(path, spec["n_fft"], spec["dim_f"], spec["dim_t"], spec["compensate"], denoise=denoise)
 
 
 def run(out_dir: str, models_dir: str, url: Optional[str] = None, file: Optional[str] = None,
@@ -51,7 +51,7 @@ def run(out_dir: str, models_dir: str, url: Optional[str] = None, file: Optional
         raise EngineError("too_long", "El audio dura más de 20 minutos.")
 
     # 2) Voz completa y música
-    voc_model = _load("voces", models_dir, "separate", 17, 20)
+    voc_model = _load("voces", models_dir, "separate", 17, 20, denoise=True)
     progress("separate", 20, "Separando la voz de la música")
     vocals = voc_model.separate(mix, on_progress=lambda p: progress("separate", 20 + 45 * p, "Separando la voz de la música"))
     del voc_model
