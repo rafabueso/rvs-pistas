@@ -33,7 +33,9 @@
     "mac": {
       "category": "public.app-category.utilities",
       "target": "dmg",
-      "identity": null
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "win": {
       "target": [

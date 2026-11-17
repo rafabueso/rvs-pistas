@@ -41,7 +41,9 @@
     "mac": {
       "category": "public.app-category.music",
       "target": "dmg",
-      "identity": null
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "win": {
       "target": [
