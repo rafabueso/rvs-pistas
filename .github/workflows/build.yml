@@ -18,7 +18,8 @@ jobs:
       - run: pip install -r engine/requirements.txt
       - run: npm ci
       - run: npm test
-      - run: python -m unittest discover -s engine/tests -t engine
+      - run: python -m unittest discover -s tests
+        working-directory: engine
 
   compilar:
     needs: pruebas

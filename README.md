@@ -27,7 +27,7 @@ pip install -r engine/requirements.txt
 python scripts/fetch_models.py     # modelos en build/models (o RVS_MODELS=/ruta)
 npm start
 npm test                           # DSP
-python -m unittest discover -s engine/tests -t engine
+(cd engine && python -m unittest discover -s tests)
 ```
 
 ## Compilar
