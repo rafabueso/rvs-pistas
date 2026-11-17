@@ -36,7 +36,7 @@ npm test                           # DSP
 
 ## Compilar
 
-`.github/workflows/build.yml` se ejecuta al crear una etiqueta `v*` (por ejemplo `v0.1.0`) o a mano desde la pestaña Actions. Ejecuta las pruebas, genera los instaladores de Pistas y de Descargar audio (Windows .exe y macOS .dmg para Apple Silicon e Intel) y los publica en la sección Releases del repositorio.
+`.github/workflows/build.yml` se ejecuta con cada cambio en `main` o a mano desde la pestaña Actions. Ejecuta las pruebas, genera los instaladores de Pistas y de Descargar audio (Windows .exe y macOS .dmg para Apple Silicon e Intel) y los publica en la sección Releases del repositorio.
 
 ## Avisos
 
