@@ -170,3 +170,4 @@ jobs:
           gh release create "$TAG" salida/* --repo rafabueso/rvs-descargas --latest \
             --title "Versión $TAG" \
             --notes "Instaladores de Pistas y de Descargar audio para Windows y Mac."
+# Publicación pública activada (secreto DESCARGAS_TOKEN)
