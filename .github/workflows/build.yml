@@ -1,0 +1,57 @@
+name: Compilar Pistas
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -r engine/requirements.txt
+      - run: npm ci
+      - run: npm test
+      - run: python -m unittest discover -s engine/tests -t engine
+
+  compilar:
+    needs: pruebas
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: windows, builder: '--win' }
+          - { os: macos-14, name: mac-apple-silicon, builder: '--mac --arm64' }
+          - { os: macos-13, name: mac-intel, builder: '--mac --x64' }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -r engine/requirements.txt pyinstaller
+      - run: npm ci
+      - name: Modelos de separación
+        run: python scripts/fetch_models.py
+      - name: Motor de audio (PyInstaller)
+        run: >
+          pyinstaller --noconfirm --name rvs-engine --distpath build/engine
+          --workpath build/pyi --specpath build/pyi
+          --collect-all imageio_ffmpeg --collect-all onnxruntime --collect-all yt_dlp
+          --paths engine engine/rvs_engine_entry.py
+      - run: npm run build:worklet
+      - name: Instalador
+        run: npx electron-builder ${{ matrix.builder }} --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pistas-${{ matrix.name }}
+          path: |
+            release/*.exe
+            release/*.dmg

@@ -1,0 +1,8 @@
+node_modules/
+build/
+release/
+dist/
+__pycache__/
+*.pyc
+*.onnx
+.venv/

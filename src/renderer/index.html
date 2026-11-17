@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://i.ytimg.com; connect-src 'self'; media-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pistas</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <img class="logo" src="assets/logo.svg" alt="Rafa Vocal Studio">
+    <span class="app-name">Pistas</span>
+    <nav class="tabs" aria-label="Secciones">
+      <button class="tab is-active" data-go="home" type="button">Nueva canción</button>
+      <button class="tab" data-go="library" type="button">Biblioteca</button>
+    </nav>
+  </header>
+
+  <div id="notice" class="notice" role="alert" hidden></div>
+
+  <main>
+    <!-- Inicio -->
+    <section id="view-home" class="view">
+      <div class="hero">
+        <h1>Separa la voz, los coros y la música</h1>
+        <p>Pega el enlace de un vídeo de YouTube o suelta un archivo. Después baja la voz, cambia la velocidad y el tono, y guarda tu mezcla.</p>
+        <form id="link-form" class="link-row" autocomplete="off">
+          <label class="sr-only" for="link">Enlace de YouTube</label>
+          <input id="link" type="text" inputmode="url" spellcheck="false" placeholder="https://www.youtube.com/watch?v=…">
+          <button id="paste" class="btn btn-soft" type="button">Pegar</button>
+          <button id="recognize" class="btn btn-yellow" type="submit">Reconocer</button>
+        </form>
+      </div>
+
+      <div id="found" class="card found" hidden>
+        <img id="found-thumb" alt="" width="160" height="90">
+        <div class="found-text">
+          <p class="label">Vídeo reconocido</p>
+          <h2 id="found-title"></h2>
+          <p id="found-meta" class="muted"></p>
+        </div>
+        <button id="found-go" class="btn btn-primary" type="button">Separar pistas</button>
+      </div>
+
+      <div id="drop" class="card drop" tabindex="0" role="button" aria-label="Elegir un archivo de audio o vídeo">
+        <p class="drop-title">🎵 Suelta aquí un archivo de audio o vídeo</p>
+        <p class="muted">mp3, wav, flac, m4a, mp4… hasta 20 minutos</p>
+        <button id="pick" class="btn btn-secondary" type="button">Elegir archivo</button>
+      </div>
+
+      <div id="recent" hidden>
+        <h2 class="section-title">Últimas canciones</h2>
+        <div id="recent-list" class="grid"></div>
+      </div>
+    </section>
+
+    <!-- Procesando -->
+    <section id="view-working" class="view" hidden>
+      <div class="card working">
+        <p class="label">Preparando tus pistas</p>
+        <h2 id="work-title">Tu canción</h2>
+        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="bar"><div id="bar-fill"></div></div>
+        <p id="work-stage" class="work-stage" aria-live="polite">Empezando…</p>
+        <p class="muted">Tarda unos minutos, según tu ordenador. Puedes dejarlo trabajando.</p>
+        <ol class="steps" id="steps">
+          <li data-stage="download">Descargar el audio</li>
+          <li data-stage="decode">Leer el audio</li>
+          <li data-stage="separate">Separar la voz de la música</li>
+          <li data-stage="split">Separar coros y voz principal</li>
+          <li data-stage="save">Guardar y analizar</li>
+        </ol>
+        <button id="cancel" class="btn btn-secondary" type="button">Cancelar</button>
+      </div>
+    </section>
+
+    <!-- Reproductor -->
+    <section id="view-player" class="view" hidden>
+      <div class="player-head">
+        <button id="back" class="btn btn-soft" type="button">← Biblioteca</button>
+        <div class="player-title">
+          <h1 id="song-title"></h1>
+          <p id="song-artist" class="muted"></p>
+        </div>
+        <div class="chips">
+          <span class="chip chip-sky"><span class="chip-k">Tono</span> <b id="chip-key"></b></span>
+          <span class="chip chip-yellow"><span class="chip-k">Tempo</span> <b id="chip-bpm"></b></span>
+        </div>
+      </div>
+
+      <div class="card tracks" id="tracks"></div>
+
+      <div class="card transport">
+        <div class="transport-main">
+          <button id="restart" class="btn-icon" type="button" aria-label="Volver al principio">⏮</button>
+          <button id="play" class="btn-play" type="button" aria-label="Reproducir">▶</button>
+          <span id="time" class="time">0:00 / 0:00</span>
+        </div>
+
+        <div class="control">
+          <label for="speed" class="label">Velocidad <b id="speed-out">100 %</b></label>
+          <input id="speed" type="range" min="50" max="150" step="5" value="100">
+          <div class="control-foot"><span id="speed-bpm" class="muted"></span><button id="speed-reset" class="link" type="button">Restablecer</button></div>
+        </div>
+
+        <div class="control">
+          <span class="label" id="pitch-label">Tono <b id="pitch-out">original</b></span>
+          <div class="stepper" role="group" aria-labelledby="pitch-label">
+            <button id="pitch-down" class="btn-icon" type="button" aria-label="Bajar un semitono">−</button>
+            <span id="pitch-val" class="stepper-val">0</span>
+            <button id="pitch-up" class="btn-icon" type="button" aria-label="Subir un semitono">+</button>
+          </div>
+          <div class="control-foot"><span id="pitch-key" class="muted"></span></div>
+        </div>
+
+        <div class="control">
+          <span class="label">Mezcla rápida</span>
+          <div class="presets">
+            <button class="btn btn-soft" data-preset="all" type="button">Todo</button>
+            <button class="btn btn-soft" data-preset="karaoke" type="button">Karaoke</button>
+            <button class="btn btn-soft" data-preset="backing" type="button">Karaoke con coros</button>
+            <button class="btn btn-soft" data-preset="voice" type="button">Solo voz</button>
+          </div>
+        </div>
+
+        <div class="control control-export">
+          <span class="label">Guardar la mezcla</span>
+          <div class="export-row">
+            <button id="export-wav" class="btn btn-primary" type="button">WAV</button>
+            <button id="export-mp3" class="btn btn-primary" type="button">MP3</button>
+          </div>
+          <div id="export-status" class="control-foot muted" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Biblioteca -->
+    <section id="view-library" class="view" hidden>
+      <h1 class="page-title">Biblioteca</h1>
+      <div id="library-list" class="grid"></div>
+      <p id="library-empty" class="muted" hidden>Aquí aparecerán las canciones que separes.</p>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

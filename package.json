@@ -1,0 +1,69 @@
+{
+  "name": "rvs-pistas",
+  "productName": "Pistas",
+  "version": "0.1.0",
+  "description": "Pega un enlace de YouTube o un archivo, separa voz, coros y música, y practica con tempo y tono a tu medida.",
+  "main": "src/main/main.js",
+  "private": true,
+  "author": "Rafa Vocal Studio",
+  "scripts": {
+    "start": "npm run build:worklet && electron .",
+    "build:worklet": "node scripts/build-worklet.js",
+    "test": "node --test test/*.test.mjs",
+    "dist": "npm run build:worklet && electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.0",
+    "esbuild": "^0.25.0",
+    "soundtouchjs": "0.3.0"
+  },
+  "build": {
+    "appId": "studio.rafavocal.pistas",
+    "productName": "Pistas",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/engine",
+        "to": "engine"
+      },
+      {
+        "from": "build/models",
+        "to": "models"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.music",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "identity": null
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
