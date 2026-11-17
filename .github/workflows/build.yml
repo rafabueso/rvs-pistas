@@ -56,6 +56,9 @@ jobs:
           --collect-all imageio_ffmpeg --collect-all onnxruntime --collect-all yt_dlp
           --paths engine engine/rvs_engine_entry.py
       - run: npm run build:worklet
+      - name: Número de versión
+        shell: bash
+        run: npm version 0.1.${{ github.run_number }} --no-git-tag-version
       - name: Instalador
         run: npx electron-builder ${{ matrix.builder }} --publish never
       - name: Comprobar que el programa es de la arquitectura correcta
@@ -104,6 +107,9 @@ jobs:
           --collect-all imageio_ffmpeg --collect-all yt_dlp
           --exclude-module numpy --exclude-module onnxruntime
           --paths ../engine ../engine/dl_entry.py
+      - name: Número de versión
+        shell: bash
+        run: npm version 0.1.${{ github.run_number }} --no-git-tag-version
       - name: Instalador
         run: npx electron-builder ${{ matrix.builder }} --publish never
       - name: Comprobar que el programa es de la arquitectura correcta

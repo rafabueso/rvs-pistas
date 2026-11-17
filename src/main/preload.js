@@ -5,6 +5,8 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 const invoke = (channel, ...args) => ipcRenderer.invoke(channel, ...args);
 
 contextBridge.exposeInMainWorld('pistas', {
+  checkUpdate: () => invoke('update:check'),
+  openUpdate: () => invoke('update:open'),
   readClipboard: () => invoke('clipboard:read'),
   probe: (url) => invoke('probe', url),
   pickFile: () => invoke('file:pick'),

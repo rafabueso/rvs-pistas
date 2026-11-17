@@ -2,6 +2,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 const invoke = (c, ...a) => ipcRenderer.invoke(c, ...a);
 contextBridge.exposeInMainWorld('descargador', {
+  checkUpdate: () => invoke('update:check'),
+  openUpdate: () => invoke('update:open'),
   readClipboard: () => invoke('clipboard:read'),
   probe: (url) => invoke('probe', url),
   folder: () => invoke('folder:get'),

@@ -7,6 +7,7 @@ const { pathToFileURL } = require('url');
 const engine = require('./engine');
 const store = require('./store');
 const v = require('./validate');
+const updater = require('./update');
 
 if (process.env.RVS_USER_DATA) app.setPath('userData', process.env.RVS_USER_DATA);
 
@@ -90,6 +91,8 @@ const wrap = (fn) => async (...a) => {
 };
 
 function registerIpc() {
+  ipcMain.handle('update:check', wrap(() => updater.check()));
+  ipcMain.handle('update:open', wrap(() => { shell.openExternal(updater.PAGE); return true; }));
   ipcMain.handle('clipboard:read', wrap(() => clipboard.readText().slice(0, 400)));
 
   ipcMain.handle('probe', wrap((_e, rawUrl) => {

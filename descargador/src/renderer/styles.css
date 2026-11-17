@@ -71,3 +71,5 @@ main { max-width: 760px; }
 .done { background: var(--ok-bg); border-color: #b9dfc9; }
 .foot { text-align: center; color: var(--ink-muted); font-size: 12px; }
 main { display: grid; gap: 16px; }
+.update { margin: 12px 28px 0; padding: 10px 16px; border-radius: var(--radius-m); background: var(--tint-sky); border: 1px solid var(--sky); color: var(--ink); font-weight: 700; }
+.update .link { font-weight: 800; }

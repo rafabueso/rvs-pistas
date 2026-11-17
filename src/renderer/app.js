@@ -325,3 +325,15 @@ $('back').addEventListener('click', () => { if (state.player) { state.player.pau
 window.addEventListener('resize', () => { if (!$('view-player').hidden && state.peaks.length) drawWaves(); });
 
 refreshLibrary();
+
+// Aviso de versión nueva (solo avisa; no instala nada solo)
+(async () => {
+  try {
+    const r = await window.pistas.checkUpdate();
+    if (r && r.ok && r.data.available) {
+      document.getElementById('update-text').textContent = 'Hay una versión nueva disponible.';
+      document.getElementById('update').hidden = false;
+      document.getElementById('update-go').addEventListener('click', () => window.pistas.openUpdate());
+    }
+  } catch { /* sin conexión: no pasa nada */ }
+})();

@@ -61,3 +61,15 @@ $('cancel').addEventListener('click', () => unwrap(api.cancel()).catch(() => {})
 $('show').addEventListener('click', () => state.path && unwrap(api.show(state.path)).catch(() => {}));
 $('again').addEventListener('click', () => { $('link').value = ''; state.url = null; notice(''); show(); $('link').focus(); });
 show();
+
+// Aviso de versión nueva (solo avisa; no instala nada solo)
+(async () => {
+  try {
+    const r = await window.descargador.checkUpdate();
+    if (r && r.ok && r.data.available) {
+      document.getElementById('update-text').textContent = 'Hay una versión nueva disponible.';
+      document.getElementById('update').hidden = false;
+      document.getElementById('update-go').addEventListener('click', () => window.descargador.openUpdate());
+    }
+  } catch { /* sin conexión: no pasa nada */ }
+})();
