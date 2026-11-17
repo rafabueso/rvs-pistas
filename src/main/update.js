@@ -4,7 +4,7 @@
 const { net, app } = require('electron');
 
 const LATEST = 'https://api.github.com/repos/rafabueso/rvs-descargas/releases/latest';
-const PAGE = 'https://github.com/rafabueso/rvs-descargas/releases/latest';
+const PAGE = 'https://www.rafabueso.com/regalo-964988648d/';
 
 const parts = (v) => String(v).replace(/^v/, '').split('.').map((n) => parseInt(n, 10) || 0);
 function newer(a, b) { const x = parts(a); const y = parts(b); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; }
