@@ -62,7 +62,7 @@ jobs:
           exe=$(find release -path '*.app/Contents/MacOS/*' -type f | head -1)
           echo "$exe"; file "$exe"
           file "$exe" | grep -q "${{ matrix.macarch }}"
-          test "$(ls release/*.dmg | wc -l)" = "1"
+          test "$(ls release/*.dmg | wc -l | tr -d ' ')" = "1"
       - uses: actions/upload-artifact@v4
         with:
           name: pistas-${{ matrix.name }}
@@ -104,10 +104,10 @@ jobs:
         if: ${{ matrix.macarch != '' }}
         shell: bash
         run: |
-          exe=$(find descargador/release -path '*.app/Contents/MacOS/*' -type f | head -1)
+          exe=$(find release -path '*.app/Contents/MacOS/*' -type f | head -1)
           echo "$exe"; file "$exe"
           file "$exe" | grep -q "${{ matrix.macarch }}"
-          test "$(ls descargador/release/*.dmg | wc -l)" = "1"
+          test "$(ls release/*.dmg | wc -l | tr -d ' ')" = "1"
       - uses: actions/upload-artifact@v4
         with:
           name: descargador-${{ matrix.name }}
