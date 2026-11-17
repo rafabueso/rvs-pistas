@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https://i.ytimg.com data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Descargar audio</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <img class="logo" src="assets/logo.svg" alt="Rafa Vocal Studio">
+  <span class="app-name">Descargar audio</span>
+</header>
+<div id="notice" class="notice" hidden role="alert"></div>
+<main>
+  <section class="hero">
+    <h1>Pega un enlace de YouTube y guarda su audio</h1>
+    <p>Sin anuncios, sin cuentas y sin enviar nada a nadie. El audio se descarga directamente en tu ordenador.</p>
+    <form id="form" class="link-row">
+      <label class="sr-only" for="link">Enlace de YouTube</label>
+      <input id="link" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://www.youtube.com/watch?v=…">
+      <button type="button" id="paste" class="btn btn-yellow">📋 Pegar</button>
+    </form>
+  </section>
+
+  <section id="found" class="card found" hidden>
+    <img id="thumb" width="160" height="90" alt="">
+    <div class="found-text">
+      <p class="label">Reconocido</p>
+      <h2 id="title"></h2>
+      <p id="meta" class="muted"></p>
+    </div>
+  </section>
+
+  <section id="options" class="card" hidden>
+    <p class="label">Formato</p>
+    <div class="seg" role="radiogroup" aria-label="Formato">
+      <button type="button" class="seg-btn is-active" role="radio" aria-checked="true" data-format="mp3">MP3<span>Sirve en todas partes</span></button>
+      <button type="button" class="seg-btn" role="radio" aria-checked="false" data-format="m4a">M4A<span>Mejor calidad para el mismo peso</span></button>
+    </div>
+    <p class="label folder-label">Se guardará en</p>
+    <div class="folder-row"><span id="folder" class="folder"></span><button type="button" id="change" class="link">Cambiar carpeta</button></div>
+    <div class="actions"><button type="button" id="go" class="btn btn-primary">⬇️ Descargar audio</button></div>
+  </section>
+
+  <section id="working" class="card" hidden>
+    <p id="stage" class="section-title">Descargando…</p>
+    <div class="bar"><div id="fill" class="fill"></div></div>
+    <p id="pct" class="muted">0 %</p>
+    <button type="button" id="cancel" class="link">Cancelar</button>
+  </section>
+
+  <section id="done" class="card done" hidden>
+    <p class="section-title">✅ Listo</p>
+    <p id="done-name" class="muted"></p>
+    <div class="actions">
+      <button type="button" id="show" class="btn btn-primary">📂 Mostrar en la carpeta</button>
+      <button type="button" id="again" class="btn btn-secondary">Descargar otra</button>
+    </div>
+  </section>
+  <p class="foot">Úsalo solo con contenido propio o con permiso de quien lo publicó.</p>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

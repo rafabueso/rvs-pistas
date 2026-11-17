@@ -4,7 +4,7 @@ import os
 import shutil
 from typing import Callable, Optional
 
-from .audio import ffmpeg_path
+from .ffmpeg import ffmpeg_path
 from .events import EngineError
 from .urls import canonical_youtube_url
 
@@ -33,12 +33,12 @@ def _options(extra: Optional[dict] = None) -> dict:
 
 def _friendly(exc: Exception) -> EngineError:
     text = str(exc).lower()
-    if "private" in text or "sign in" in text or "age" in text:
+    if "network" in text or "urlopen" in text or "timed out" in text or "resolve" in text or "proxy" in text or "connect" in text:
+        return EngineError("network", "No hay conexión con YouTube. Comprueba tu internet.")
+    if "private" in text or "sign in" in text or "age-restricted" in text or "age restricted" in text or "confirm your age" in text:
         return EngineError("yt_restricted", "Ese vídeo es privado o tiene restricción de edad.")
     if "unavailable" in text or "not available" in text or "removed" in text:
         return EngineError("yt_unavailable", "Ese vídeo no está disponible.")
-    if "network" in text or "urlopen" in text or "timed out" in text or "resolve" in text:
-        return EngineError("network", "No hay conexión con YouTube. Comprueba tu internet.")
     return EngineError("yt_failed", "No se ha podido leer el vídeo. Si pasa con todos, hay que actualizar la aplicación.")
 
 

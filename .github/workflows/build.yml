@@ -1,10 +1,12 @@
-name: Compilar Pistas
+name: Compilar Pistas y Descargar audio
 
 on:
   push:
-    branches: [main]
     tags: ['v*']
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   pruebas:
@@ -20,6 +22,8 @@ jobs:
       - run: npm test
       - run: python -m unittest discover -s tests
         working-directory: engine
+      - run: npm ci && npm test
+        working-directory: descargador
 
   compilar:
     needs: pruebas
@@ -56,3 +60,68 @@ jobs:
           path: |
             release/*.exe
             release/*.dmg
+
+  compilar-descargador:
+    needs: pruebas
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: windows, builder: '--win' }
+          - { os: macos-15, name: mac-apple-silicon, builder: '--mac --arm64' }
+          - { os: macos-15-intel, name: mac-intel, builder: '--mac --x64' }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: descargador
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: descargador/package-lock.json }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install yt-dlp imageio-ffmpeg pyinstaller
+      - run: npm ci
+      - name: Motor de descarga (PyInstaller)
+        run: >
+          pyinstaller --noconfirm --name rvs-dl --distpath build/engine
+          --workpath build/pyi --specpath build/pyi
+          --collect-all imageio_ffmpeg --collect-all yt_dlp
+          --exclude-module numpy --exclude-module onnxruntime
+          --paths ../engine ../engine/dl_entry.py
+      - name: Instalador
+        run: npx electron-builder ${{ matrix.builder }} --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: descargador-${{ matrix.name }}
+          path: |
+            descargador/release/*.exe
+            descargador/release/*.dmg
+
+  publicar:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [compilar, compilar-descargador]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: instaladores
+          merge-multiple: false
+      - name: Renombrar con nombres claros
+        run: |
+          mkdir salida
+          for d in instaladores/*; do
+            n=$(basename "$d")
+            for f in "$d"/*; do
+              ext="${f##*.}"
+              cp "$f" "salida/${n}.${ext}"
+            done
+          done
+          ls -lh salida
+      - name: Crear la versión
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" salida/* --repo "${GITHUB_REPOSITORY}" \
+            --title "Versión ${GITHUB_REF_NAME}" \
+            --notes "Instaladores de Pistas y de Descargar audio para Windows y Mac."

@@ -1,0 +1,21 @@
+{
+  "name": "rvs-descargador",
+  "productName": "Descargar audio",
+  "version": "0.1.0",
+  "description": "Pega un enlace de YouTube y guarda su audio en MP3 o M4A. Sin anuncios, sin cuentas, sin enviar nada a nadie.",
+  "main": "src/main/main.js",
+  "private": true,
+  "author": "Rafa Vocal Studio",
+  "scripts": { "start": "electron .", "test": "node --test test/*.test.js" },
+  "devDependencies": { "electron": "^39.0.0", "electron-builder": "^26.0.0" },
+  "build": {
+    "appId": "studio.rafavocal.descargaraudio",
+    "productName": "Descargar audio",
+    "directories": { "output": "release" },
+    "files": ["src/**/*", "package.json"],
+    "extraResources": [{ "from": "build/engine", "to": "engine" }],
+    "mac": { "category": "public.app-category.utilities", "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }], "identity": null },
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }] },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true }
+  }
+}

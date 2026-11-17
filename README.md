@@ -19,6 +19,10 @@ Todo ocurre en tu ordenador: el audio no se sube a ningún servidor.
 
 > Nota: se eligió MDX-Net en lugar de Demucs porque Demucs exige PyTorch (1–2 GB y empaquetado delicado en Windows/Mac). Se puede añadir más adelante como segundo motor.
 
+## Descargar audio (programa aparte)
+
+En `descargador/` hay un programa pequeño que solo hace una cosa: pegas un enlace de YouTube y guarda el audio en MP3 o M4A. Sin anuncios, sin cuentas y sin enviar nada a ningún sitio. Comparte con Pistas la validación estricta de enlaces (solo YouTube, un vídeo, máximo 20 minutos) y no incluye los modelos de separación ni onnxruntime.
+
 ## Desarrollo
 
 ```bash
@@ -32,7 +36,7 @@ npm test                           # DSP
 
 ## Compilar
 
-`.github/workflows/build.yml` ejecuta las pruebas y genera el instalador de Windows (.exe) y los de macOS (.dmg, Apple Silicon e Intel) como artefactos. Con una etiqueta `v*` también se puede publicar una versión.
+`.github/workflows/build.yml` se ejecuta al crear una etiqueta `v*` (por ejemplo `v0.1.0`) o a mano desde la pestaña Actions. Ejecuta las pruebas, genera los instaladores de Pistas y de Descargar audio (Windows .exe y macOS .dmg para Apple Silicon e Intel) y los publica en la sección Releases del repositorio.
 
 ## Avisos
 
