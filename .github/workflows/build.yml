@@ -28,8 +28,8 @@ jobs:
       matrix:
         include:
           - { os: windows-latest, name: windows, builder: '--win' }
-          - { os: macos-14, name: mac-apple-silicon, builder: '--mac --arm64' }
-          - { os: macos-13, name: mac-intel, builder: '--mac --x64' }
+          - { os: macos-15, name: mac-apple-silicon, builder: '--mac --arm64' }
+          - { os: macos-15-intel, name: mac-intel, builder: '--mac --x64' }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
