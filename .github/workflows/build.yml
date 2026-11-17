@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths-ignore: ['README.md']
   workflow_dispatch:
+  schedule:
+    # Cada día 1 de mes, a las 05:17 UTC: recompila con la última versión de yt-dlp
+    - cron: '17 5 1 * *'
 
 permissions:
   contents: write
@@ -147,5 +150,17 @@ jobs:
         run: |
           TAG="v0.1.${{ github.run_number }}"
           gh release create "$TAG" salida/* --repo "${GITHUB_REPOSITORY}" --target "${GITHUB_SHA}" --latest \
+            --title "Versión $TAG" \
+            --notes "Instaladores de Pistas y de Descargar audio para Windows y Mac."
+      - name: Copiar a la página pública de descargas
+        env:
+          GH_TOKEN: ${{ secrets.DESCARGAS_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "Falta el secreto DESCARGAS_TOKEN: no se publica en rvs-descargas."
+            exit 0
+          fi
+          TAG="v0.1.${{ github.run_number }}"
+          gh release create "$TAG" salida/* --repo rafabueso/rvs-descargas --latest \
             --title "Versión $TAG" \
             --notes "Instaladores de Pistas y de Descargar audio para Windows y Mac."
