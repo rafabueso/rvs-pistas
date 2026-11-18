@@ -18,6 +18,29 @@ import synth  # noqa: E402
 MODELS = os.environ.get("RVS_MODELS", "")
 
 
+class KaraokeNombres(unittest.TestCase):
+    def test_nombre_de_salida(self):
+        from rvs_engine import karaoke
+        self.assertEqual(karaoke.output_path("/m/Rosalia - Malamente.mp3", "karaoke").name, "Rosalia - Malamente (karaoke).mp3")
+        self.assertEqual(karaoke.output_path("/m/Tema.m4a", "voz").name, "Tema (solo voz).m4a")
+        self.assertEqual(karaoke.output_path("/m/Tema.wav", "karaoke").name, "Tema (karaoke).mp3")
+
+    def test_no_procesa_una_version_ya_procesada(self):
+        from rvs_engine import karaoke
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "Tema (karaoke).mp3"
+            f.write_bytes(b"x")
+            with self.assertRaises(EngineError) as e:
+                karaoke.run(str(f), "karaoke", d)
+            self.assertEqual(e.exception.code, "already")
+
+    def test_archivo_que_falta(self):
+        from rvs_engine import karaoke
+        with self.assertRaises(EngineError) as e:
+            karaoke.run("/no/existe.mp3", "voz", "/tmp")
+        self.assertEqual(e.exception.code, "bad_file")
+
+
 class Urls(unittest.TestCase):
     def test_acepta_formas_habituales(self):
         want = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"

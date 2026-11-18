@@ -8,5 +8,5 @@ from rvs_engine.models import MODELS, ensure_model  # noqa: E402
 
 out = root / "build" / "models"
 out.mkdir(parents=True, exist_ok=True)
-for key in MODELS:
+for key in (sys.argv[1:] or MODELS):
     print("modelo", key, "->", ensure_model(key, str(out)), flush=True)

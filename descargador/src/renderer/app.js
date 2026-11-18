@@ -51,16 +51,74 @@ $('go').addEventListener('click', async () => {
       if (evt.stage === 'convert') { $('stage').textContent = 'Convirtiendo…'; $('fill').style.width = '100%'; $('pct').textContent = ''; }
       else { $('fill').style.width = `${evt.pct}%`; $('pct').textContent = `${Math.round(evt.pct)} %`; }
     }));
-    state.path = r.path;
+    state.path = r.path; resetDone();
     $('done-name').textContent = r.path.split(/[\\/]/).pop();
     show('found', 'done');
   } catch (e) { show('found', 'options'); if (e.code !== 'cancelled') notice(e.message); }
-  finally { state.busy = false; }
+  finally { state.busy = false; loadRecent(); }
 });
 $('cancel').addEventListener('click', () => unwrap(api.cancel()).catch(() => {}));
 $('show').addEventListener('click', () => state.path && unwrap(api.show(state.path)).catch(() => {}));
 $('again').addEventListener('click', () => { $('link').value = ''; state.url = null; notice(''); show(); $('link').focus(); });
+const resetDone = () => { $('done-karaoke').hidden = false; $('done-voz').hidden = false; document.querySelector('.karaoke-label').hidden = false; };
 show();
+
+// ---- Karaoke y últimas descargas ----
+const baseName = (p) => p.split(/[\\/]/).pop();
+const MODE_TEXT = { karaoke: 'Karaoke listo', voz: 'Solo voz listo' };
+
+async function makeKaraoke(path, mode, back) {
+  if (state.busy) return;
+  state.busy = true; notice('');
+  $('fill').style.width = '0%'; $('pct').textContent = ''; $('stage').textContent = 'Preparando…';
+  show(back === 'done' ? 'found' : '', 'working');
+  setRecentBusy(true);
+  try {
+    const r = await unwrap(api.karaoke({ path, mode }, (evt) => {
+      if (evt.event !== 'progress') return;
+      $('stage').textContent = `${evt.message || 'Trabajando'}…`;
+      $('fill').style.width = `${evt.pct}%`; $('pct').textContent = `${Math.round(evt.pct)} %`;
+    }));
+    state.path = r.path;
+    $('done-name').textContent = `${MODE_TEXT[mode]}: ${baseName(r.path)}`;
+    show('done');
+    $('done-karaoke').hidden = true; $('done-voz').hidden = true; document.querySelector('.karaoke-label').hidden = true;
+  } catch (e) { show(back === 'done' ? 'found' : '', back === 'done' ? 'done' : ''); if (e.code !== 'cancelled') notice(e.message); }
+  finally { state.busy = false; setRecentBusy(false); loadRecent(); }
+}
+
+function setRecentBusy(b) { document.querySelectorAll('#recent .chip').forEach((x) => { x.disabled = b; }); }
+
+function chip(text, cls, onClick) {
+  const b = document.createElement('button'); b.type = 'button'; b.className = `chip ${cls || ''}`; b.textContent = text; b.addEventListener('click', onClick); return b;
+}
+
+function renderRecent(items) {
+  $('recent').hidden = false;
+  const ul = $('recent-list'); ul.textContent = '';
+  if (!items.length) { const li = document.createElement('li'); li.className = 'muted'; li.textContent = 'Aquí aparecerán tus descargas.'; ul.append(li); return; }
+  for (const it of items) {
+    const li = document.createElement('li'); li.className = 'recent-row';
+    const name = document.createElement('span'); name.className = 'recent-name'; name.textContent = it.name;
+    const acts = document.createElement('span'); acts.className = 'recent-actions';
+    if (!it.processed) {
+      acts.append(it.karaoke ? chip('📂 Karaoke', 'is-ready', () => api.showRecent(it.path, 'karaoke')) : chip('🎤 Karaoke', '', () => makeKaraoke(it.path, 'karaoke', 'list')));
+      acts.append(it.voz ? chip('📂 Solo voz', 'is-ready', () => api.showRecent(it.path, 'voz')) : chip('🎙️ Solo voz', 'is-voz', () => makeKaraoke(it.path, 'voz', 'list')));
+    }
+    acts.append(chip('📂', 'is-ghost', () => api.showRecent(it.path, 'orig')));
+    const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.title = 'Quitar de la lista (no borra el archivo)'; x.setAttribute('aria-label', 'Quitar de la lista'); x.textContent = '✕';
+    x.addEventListener('click', async () => { try { renderRecent(await unwrap(api.removeRecent(it.path))); } catch (e) { notice(e.message); } });
+    li.append(name, acts, x); ul.append(li);
+  }
+  setRecentBusy(state.busy);
+}
+
+async function loadRecent() { try { renderRecent(await unwrap(api.recent())); } catch { /* sin lista */ } }
+
+$('done-karaoke').addEventListener('click', () => state.path && makeKaraoke(state.path, 'karaoke', 'done'));
+$('done-voz').addEventListener('click', () => state.path && makeKaraoke(state.path, 'voz', 'done'));
+$('pick').addEventListener('click', async () => { try { const p = await unwrap(api.pickFile()); if (p) await loadRecent(); } catch (e) { notice(e.message); } });
+loadRecent();
 
 // Aviso de versión nueva (solo avisa; no instala nada solo)
 (async () => {

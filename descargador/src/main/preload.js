@@ -15,4 +15,13 @@ contextBridge.exposeInMainWorld('descargador', {
   },
   cancel: () => invoke('cancel'),
   show: (p) => invoke('shell:show', p),
+  recent: () => invoke('recent:list'),
+  removeRecent: (p) => invoke('recent:remove', p),
+  showRecent: (p, which) => invoke('recent:show', { path: p, which }),
+  pickFile: () => invoke('file:pick'),
+  karaoke: (opts, onProgress) => {
+    const l = (_e, evt) => { if (onProgress) onProgress(evt); };
+    ipcRenderer.on('engine:progress', l);
+    return invoke('karaoke', opts).finally(() => ipcRenderer.removeListener('engine:progress', l));
+  },
 });

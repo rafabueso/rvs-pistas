@@ -73,3 +73,17 @@ main { max-width: 760px; }
 main { display: grid; gap: 16px; }
 .update { margin: 12px 28px 0; padding: 10px 16px; border-radius: var(--radius-m); background: var(--tint-sky); border: 1px solid var(--sky); color: var(--ink); font-weight: 700; }
 .update .link { font-weight: 800; }
+
+.karaoke-label { margin: 16px 0 8px; }
+.recent-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.recent-head .section-title { margin-bottom: 8px; }
+.recent-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.recent-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--paper); }
+.recent-name { flex: 1 1 200px; min-width: 0; font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+.recent-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.chip { border: 0; border-radius: var(--radius-pill); padding: 7px 12px; cursor: pointer; font-weight: 700; font-size: 13px; background: var(--tint-yellow); color: var(--on-yellow); }
+.chip.is-voz { background: var(--tint-sky); color: var(--ink); }
+.chip.is-ready { background: var(--ok-bg); color: var(--ok); }
+.chip.is-ghost { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.chip:disabled { opacity: 0.55; cursor: progress; }
+.recent .x { background: none; border: 0; cursor: pointer; color: var(--ink-muted); font-size: 16px; padding: 4px 8px; }

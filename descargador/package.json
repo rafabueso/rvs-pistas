@@ -28,6 +28,10 @@
       {
         "from": "build/engine",
         "to": "engine"
+      },
+      {
+        "from": "build/models",
+        "to": "models"
       }
     ],
     "mac": {

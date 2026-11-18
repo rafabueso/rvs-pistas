@@ -15,11 +15,18 @@ def main(argv=None) -> int:
     s.add_argument("--url", required=True)
     s.add_argument("--out", required=True)
     s.add_argument("--format", default="mp3", choices=["mp3", "m4a"])
+    s = sub.add_parser("karaoke")
+    s.add_argument("--file", required=True)
+    s.add_argument("--mode", required=True, choices=["karaoke", "voz"])
+    s.add_argument("--models", required=True)
     a = p.parse_args(argv)
     try:
         if a.cmd == "probe":
             from .youtube import probe
             events.emit("result", data=probe(a.url))
+        elif a.cmd == "karaoke":
+            from . import karaoke
+            events.emit("result", data=karaoke.run(a.file, a.mode, a.models, events.progress))
         else:
             from . import download
             data = download.run(a.url, a.out, a.format,
