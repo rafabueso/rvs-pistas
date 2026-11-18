@@ -52,7 +52,7 @@ export class Player {
       };
     });
     const transfer = stems.flatMap((s) => [s.l.buffer, s.r.buffer]);
-    this.node.port.postMessage({ type: 'load', stems }, [...new Set(transfer)]);
+    this.node.port.postMessage({ type: 'load', stems, vocal: [true, true, false] }, [...new Set(transfer)]);
     await ready;
     return { peaks, seconds: this.length / this.sampleRate };
   }

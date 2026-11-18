@@ -11,7 +11,7 @@ class StretchProcessor extends AudioWorkletProcessor {
 
   onMessage(m) {
     if (m.type === 'load') {
-      this.engine = new MixEngine(m.stems);
+      this.engine = new MixEngine(m.stems, m.vocal || []);
       this.playing = false;
       this.port.postMessage({ type: 'loaded', length: this.engine.length });
       return;
@@ -31,6 +31,7 @@ class StretchProcessor extends AudioWorkletProcessor {
     const n = out[0].length;
     if (!this.engine || !this.playing) { return true; }
     const got = this.engine.render(out[0], out[1] || out[0], n);
+    this.engine.prefetch(2);
     if (++this.blocks % 12 === 0) this.port.postMessage({ type: 'position', frame: this.engine.position });
     if (got === 0 && this.engine.ended) {
       this.playing = false;

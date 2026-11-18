@@ -301,7 +301,7 @@ async function exportMix(format) {
     let stems;
     try { stems = await decodeStems(state.project.id, ctx); } finally { ctx.close().catch(() => {}); }
     const blob = await renderToWav(stems, {
-      gains: [0, 1, 2].map(effectiveGain), tempo: state.tempo, semitones: state.semitones, sampleRate: 44100,
+      gains: [0, 1, 2].map(effectiveGain), tempo: state.tempo, semitones: state.semitones, sampleRate: 44100, vocal: [true, true, false],
       onProgress: (p) => { status.textContent = `Creando la mezcla… ${Math.round(p * 100)} %`; },
     });
     status.textContent = 'Elige dónde guardarla…';
