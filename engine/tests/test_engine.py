@@ -25,6 +25,16 @@ class KaraokeNombres(unittest.TestCase):
         self.assertEqual(karaoke.output_path("/m/Tema.m4a", "voz").name, "Tema (solo voz).m4a")
         self.assertEqual(karaoke.output_path("/m/Tema.wav", "karaoke").name, "Tema (karaoke).mp3")
 
+    def test_nombre_en_otra_carpeta(self):
+        from rvs_engine import karaoke
+        self.assertEqual(str(karaoke.output_path("/tmp/x/Tema.mp3", "voz", "/m")), "/m/Tema (solo voz).mp3")
+
+    def test_pide_los_dos_a_la_vez(self):
+        from rvs_engine import karaoke
+        with self.assertRaises(EngineError) as e:
+            karaoke.run("/no/existe.mp3", "karaoke,otra", "/tmp")
+        self.assertEqual(e.exception.code, "bad_mode")
+
     def test_no_procesa_una_version_ya_procesada(self):
         from rvs_engine import karaoke
         with tempfile.TemporaryDirectory() as d:

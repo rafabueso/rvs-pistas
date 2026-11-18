@@ -2,6 +2,7 @@
 const { app, BrowserWindow, ipcMain, dialog, protocol, net, session, shell, clipboard, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { pathToFileURL } = require('url');
 const engine = require('./engine');
 const v = require('./validate');
@@ -52,7 +53,7 @@ function hardenSession() {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 760, height: 800, minWidth: 560, minHeight: 600, backgroundColor: '#f8f8f8', title: 'Descargar audio', show: false,
+    width: 680, height: 860, minWidth: 560, minHeight: 640, backgroundColor: '#f8f8f8', title: 'Descargar audio', show: false,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false },
   });
   win.once('ready-to-show', () => win.show());
@@ -93,6 +94,36 @@ function registerIpc() {
     const sender = e.sender;
     job = engine.run(['download', '--url', clean, '--out', folder, '--format', format], (evt) => { if (!sender.isDestroyed()) sender.send('engine:progress', evt); });
     try { const r = await job.promise; saved.add(r.path); remember(r.path); return r; } finally { job = null; }
+  }));
+  ipcMain.handle('make', wrap(async (e, { url, format, want }) => {
+    const clean = v.youtubeUrl(url);
+    if (!clean) throw { code: 'bad_url', message: 'Pega un enlace de un vídeo de YouTube.' };
+    if (!v.FORMATS.has(format)) throw { code: 'bad_format', message: 'Formato no admitido.' };
+    const modes = [want && want.karaoke ? 'karaoke' : null, want && want.voz ? 'voz' : null].filter(Boolean);
+    const keep = !!(want && want.original);
+    if (!keep && !modes.length) throw { code: 'nothing', message: 'Marca al menos una cosa que guardar.' };
+    if (job) throw { code: 'busy', message: 'Ya hay un trabajo en marcha.' };
+    const sender = e.sender;
+    const send = (step) => (evt) => { if (!sender.isDestroyed()) sender.send('engine:progress', { ...evt, step }); };
+    let cancelled = false; let current = null;
+    job = { cancel: () => { cancelled = true; if (current) current.cancel(); } };
+    const tmp = keep ? null : fs.mkdtempSync(path.join(os.tmpdir(), 'rvsdl-'));
+    try {
+      current = engine.run(['download', '--url', clean, '--out', tmp || folder, '--format', format], send('download'));
+      const dl = await current.promise;
+      const made = [];
+      if (keep) { made.push(dl.path); saved.add(dl.path); remember(dl.path); }
+      if (modes.length) {
+        if (cancelled) throw { code: 'cancelled', message: 'Cancelado.' };
+        current = engine.run(['karaoke', '--file', dl.path, '--mode', modes.join(','), '--models', MODELS, '--out-dir', folder], send('sep'));
+        const k = await current.promise;
+        for (const p of k.paths) { saved.add(p); made.push(p); }
+      }
+      return { paths: made, folder };
+    } finally {
+      job = null;
+      if (tmp) { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* es una carpeta temporal propia */ } }
+    }
   }));
   ipcMain.handle('cancel', wrap(() => { if (job) job.cancel(); return true; }));
   ipcMain.handle('shell:show', wrap((_e, p) => { if (saved.has(p) || allowed.has(p)) shell.showItemInFolder(p); return true; }));

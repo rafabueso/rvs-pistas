@@ -11,12 +11,14 @@ if cmd == "probe":
 elif cmd == "karaoke":
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "engine"))
     from rvs_engine import karaoke
-    src, mode = get("--file"), get("--mode")
-    assert os.path.isdir(get("--models")) or True
+    src, modes = get("--file"), get("--mode").split(",")
+    out_dir = get("--out-dir") if "--out-dir" in args else None
     for i in range(0, 101, 50):
         emit(event="progress", stage="separate", pct=i, message="Quitando la voz"); time.sleep(0.1)
-    dst = str(karaoke.output_path(src, mode)); open(dst, "wb").write(b"fake")
-    emit(event="result", data={"path": dst, "mode": mode})
+    paths = []
+    for m in modes:
+        dst = str(karaoke.output_path(src, m, out_dir)); open(dst, "wb").write(b"fake"); paths.append(dst)
+    emit(event="result", data={"path": paths[0], "paths": paths, "mode": modes[0], "modes": modes})
 else:
     for i in range(0, 101, 25):
         emit(event="progress", stage="download", pct=i, message=""); time.sleep(0.2)

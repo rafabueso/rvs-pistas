@@ -13,6 +13,11 @@ contextBridge.exposeInMainWorld('descargador', {
     ipcRenderer.on('engine:progress', l);
     return invoke('download', opts).finally(() => ipcRenderer.removeListener('engine:progress', l));
   },
+  make: (opts, onProgress) => {
+    const l = (_e, evt) => { if (onProgress) onProgress(evt); };
+    ipcRenderer.on('engine:progress', l);
+    return invoke('make', opts).finally(() => ipcRenderer.removeListener('engine:progress', l));
+  },
   cancel: () => invoke('cancel'),
   show: (p) => invoke('shell:show', p),
   recent: () => invoke('recent:list'),

@@ -33,43 +33,52 @@ app.whenReady().then(async () => {
     await waitFor(win, `!document.getElementById('options').hidden`);
     check('reconoce el enlace pegado', (await ev(win, `document.getElementById('title').textContent`)) === 'Canción de prueba');
     await shot(win, '02-reconocido.png');
-    await ev(win, `document.querySelector('[data-format=m4a]').click(); document.getElementById('change').click()`);
-    await waitFor(win, `document.getElementById('folder').textContent.includes('descargas')`);
+    await ev(win, `document.getElementById('format').value = 'm4a'; document.getElementById('change').click()`);
+    await waitFor(win, `document.getElementById('folder').textContent === 'descargas'`);
     check('cambia la carpeta de destino', true);
+    check('por defecto: original y karaoke marcados, solo voz no', await ev(win, `[...document.querySelectorAll('.toggle')].map((b) => b.getAttribute('aria-checked')).join() === 'true,true,false'`));
+    check('el botón dice cuántos archivos salen', (await ev(win, `document.getElementById('go-text').textContent`)) === 'Descargar · 2 archivos');
+    await ev(win, `document.querySelector('[data-want=voz]').click()`);
+    check('al marcar solo voz salen 3 archivos', (await ev(win, `document.getElementById('go-text').textContent`)) === 'Descargar · 3 archivos');
+    await shot(win, '02-reconocido.png');
     await ev(win, `document.getElementById('go').click()`);
     await waitFor(win, `!document.getElementById('working').hidden`);
-    await sleep(500); await shot(win, '03-descargando.png');
+    await sleep(900); await shot(win, '03-trabajando.png');
     await waitFor(win, `!document.getElementById('done').hidden`);
     await shot(win, '04-listo.png');
-    check('termina y muestra el archivo', /\.m4a$/.test(await ev(win, `document.getElementById('done-name').textContent`)));
-    check('el archivo está en la carpeta elegida', fs.readdirSync(dest).some((f) => f.endsWith('.m4a')));
+    check('termina y cuenta los archivos', /Listo · 3 archivos en descargas/.test(await ev(win, `document.getElementById('done-title').textContent`)));
+    const names = ['Artista - Canción de prueba.m4a', 'Artista - Canción de prueba (karaoke).m4a', 'Artista - Canción de prueba (solo voz).m4a'];
+    check('los tres archivos están en la carpeta elegida', names.every((n) => fs.existsSync(path.join(dest, n))), fs.readdirSync(dest).join(' | '));
 
-    // --- karaoke desde el resultado recién descargado ---
-    check('ofrece karaoke y solo voz al terminar', await ev(win, `!document.getElementById('done-karaoke').hidden && !document.getElementById('done-voz').hidden`));
-    await ev(win, `document.getElementById('done-karaoke').click()`);
-    await waitFor(win, `document.getElementById('done-name').textContent.includes('Karaoke listo')`);
-    check('crea el karaoke en la misma carpeta, con el mismo formato', fs.existsSync(path.join(dest, 'Artista - Canción de prueba (karaoke).m4a')));
-    await shot(win, '05-karaoke-listo.png');
-
-    // --- lista de últimas descargas ---
+    // --- últimas descargas: aparece sola y muestra lo ya hecho ---
     await waitFor(win, `document.querySelectorAll('#recent-list .recent-row').length === 1`);
     const row = await ev(win, `document.querySelector('#recent-list .recent-row').textContent`);
-    check('la lista recuerda la descarga y marca el karaoke ya hecho', /Canción de prueba/.test(row) && /📂 Karaoke/.test(row) && /🎙️ Solo voz/.test(row), row);
-    await ev(win, `[...document.querySelectorAll('#recent-list .chip')].find((c) => c.textContent.includes('🎙️')).click()`);
-    await waitFor(win, `document.getElementById('done-name').textContent.includes('Solo voz listo')`);
-    check('crea la versión solo voz desde la lista', fs.existsSync(path.join(dest, 'Artista - Canción de prueba (solo voz).m4a')));
-    await waitFor(win, `[...document.querySelectorAll('#recent-list .chip')].every((c) => !c.textContent.includes('🎙️'))`);
-    await shot(win, '06-lista.png');
+    check('la lista recuerda la descarga y marca karaoke y solo voz como hechos', /Canción de prueba/.test(row) && /Karaoke listo/.test(row) && /Solo voz listo/.test(row), row);
+
+    // --- sin original: no deja el audio suelto, solo lo pedido ---
+    await ev(win, `document.getElementById('again').click(); document.getElementById('link').value = ''`);
+    clipboard.writeText('https://youtu.be/aaaaaaaaaaa');
+    await ev(win, `document.getElementById('paste').click()`);
+    await waitFor(win, `!document.getElementById('options').hidden`);
+    await ev(win, `document.querySelector('[data-want=original]').click(); document.querySelector('[data-want=voz]').click(); document.querySelector('[data-want=voz]').click()`);
+    await ev(win, `document.querySelector('[data-want=voz]').getAttribute('aria-checked') === 'false' || document.querySelector('[data-want=voz]').click()`);
+    for (const f of fs.readdirSync(dest)) fs.unlinkSync(path.join(dest, f));
+    const before = new Set();
+    await ev(win, `document.getElementById('go').click()`);
+    await waitFor(win, `!document.getElementById('done').hidden`);
+    const added = fs.readdirSync(dest).filter((f) => !before.has(f));
+    check('sin «audio original» no deja el audio suelto', added.length === 0 || added.every((f) => /\((karaoke|solo voz)\)/.test(f)), added.join(' | '));
+    check('no deja basura temporal', !fs.readdirSync(os.tmpdir()).some((f) => f.startsWith('rvsdl-')));
 
     // --- seguridad: solo trabaja sobre archivos que la propia app conoce ---
     const evil = await ev(win, `window.descargador.karaoke({ path: '/etc/passwd', mode: 'karaoke' }).then((r) => r.ok ? 'aceptado' : r.error.code)`);
     check('rechaza archivos que no están en la lista', evil === 'bad_file', evil);
-    const twice = await ev(win, `window.descargador.karaoke({ path: ${JSON.stringify(path.join(dest, 'Artista - Canción de prueba (karaoke).m4a'))}, mode: 'karaoke' }).then((r) => r.ok ? 'aceptado' : r.error.code)`);
-    check('no vuelve a procesar una versión ya procesada', twice === 'bad_file' || twice === 'already', twice);
-
-    // --- la lista sobrevive a cerrar y abrir ---
+    const nothing = await ev(win, `window.descargador.make({ url: 'https://youtu.be/dQw4w9WgXcQ', format: 'mp3', want: { original: false, karaoke: false, voz: false } }).then((r) => r.ok ? 'aceptado' : r.error.code)`);
+    check('no hace nada si no se marca nada', nothing === 'nothing', nothing);
+    const badfmt = await ev(win, `window.descargador.make({ url: 'https://youtu.be/dQw4w9WgXcQ', format: 'exe', want: { original: true } }).then((r) => r.ok ? 'aceptado' : r.error.code)`);
+    check('rechaza formatos raros', badfmt === 'bad_format', badfmt);
     const saved = JSON.parse(fs.readFileSync(path.join(process.env.RVS_USER_DATA, 'ajustes.json'), 'utf8'));
-    check('guarda la carpeta y la lista en los ajustes', saved.folder === dest && saved.recent.length === 1);
+    check('guarda la carpeta y la lista en los ajustes', saved.folder === dest && saved.recent.length >= 1);
   } catch (e) { check('la prueba no se ha interrumpido', false, e.message); }
   const fails = results.filter((r) => !r).length;
   console.log(`\n${results.length - fails}/${results.length} comprobaciones correctas. Capturas en ${shots}`);

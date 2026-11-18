@@ -13,62 +13,67 @@
   <span class="app-name">Descargar audio</span>
 </header>
 <div id="update" class="update" hidden><span id="update-text"></span> <button type="button" id="update-go" class="link">Descargar la nueva versión</button></div>
-  <div id="notice" class="notice" hidden role="alert"></div>
+<div id="notice" class="notice" hidden role="alert"></div>
 <main>
-  <section class="hero">
-    <h1>Pega un enlace de YouTube y guarda su audio</h1>
-    <p>Sin anuncios, sin cuentas y sin enviar nada a nadie. El audio se descarga directamente en tu ordenador.</p>
-    <form id="form" class="link-row">
-      <label class="sr-only" for="link">Enlace de YouTube</label>
-      <input id="link" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://www.youtube.com/watch?v=…">
-      <button type="button" id="paste" class="btn btn-yellow">📋 Pegar</button>
-    </form>
-  </section>
+  <form id="form" class="link-row">
+    <label class="sr-only" for="link">Enlace de YouTube</label>
+    <div class="field">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg>
+      <input id="link" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Pega aquí el enlace de YouTube">
+      <button type="button" id="clear" class="plain" aria-label="Borrar enlace" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5 17.5 17.5"/><path d="M17.5 6.5 6.5 17.5"/></svg></button>
+    </div>
+    <button type="button" id="paste" class="btn btn-yellow"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1.5"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>Pegar</button>
+  </form>
 
-  <section id="found" class="card found" hidden>
-    <img id="thumb" width="160" height="90" alt="">
-    <div class="found-text">
-      <p class="label">Reconocido</p>
-      <h2 id="title"></h2>
+  <section id="found" class="strip" hidden aria-label="Canción reconocida">
+    <img id="thumb" width="64" height="36" alt="">
+    <div class="strip-text">
+      <p id="title" class="strip-title"></p>
       <p id="meta" class="muted"></p>
     </div>
   </section>
 
-  <section id="options" class="card" hidden>
-    <p class="label">Formato</p>
-    <div class="seg" role="radiogroup" aria-label="Formato">
-      <button type="button" class="seg-btn is-active" role="radio" aria-checked="true" data-format="mp3">MP3<span>Sirve en todas partes</span></button>
-      <button type="button" class="seg-btn" role="radio" aria-checked="false" data-format="m4a">M4A<span>Mejor calidad para el mismo peso</span></button>
+  <section id="options" hidden>
+    <p class="h">¿Qué quieres guardar?</p>
+    <div class="toggles" role="group" aria-label="Qué quieres guardar">
+      <button type="button" class="toggle is-on" role="checkbox" aria-checked="true" data-want="original"><svg class="ic mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5 10 17.5 19 7"/></svg><span><b>Audio original</b><small>Para escucharlo</small></span></button>
+      <button type="button" class="toggle is-on" role="checkbox" aria-checked="true" data-want="karaoke"><svg class="ic mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5 10 17.5 19 7"/></svg><span><b>Karaoke</b><small>Sin voz, para cantar</small></span></button>
+      <button type="button" class="toggle" role="checkbox" aria-checked="false" data-want="voz"><svg class="ic mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg><span><b>Solo voz</b><small>Para estudiarla</small></span></button>
     </div>
-    <p class="label folder-label">Se guardará en</p>
-    <div class="folder-row"><span id="folder" class="folder"></span><button type="button" id="change" class="link">Cambiar carpeta</button></div>
-    <div class="actions"><button type="button" id="go" class="btn btn-primary">⬇️ Descargar audio</button></div>
+    <div class="opts-row">
+      <div class="opts">
+        <label class="popup">Formato
+          <span class="select"><select id="format"><option value="mp3">MP3</option><option value="m4a">M4A</option></select><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></span>
+        </label>
+        <span class="popup">Carpeta
+          <button type="button" id="change" class="popup-btn" aria-label="Cambiar carpeta"><span id="folder"></span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
+        </span>
+      </div>
+      <button type="button" id="go" class="btn btn-primary"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11"/><path d="M7.5 11 12 15.5 16.5 11"/><path d="M5 19h14"/></svg><span id="go-text">Descargar</span></button>
+    </div>
   </section>
 
-  <section id="working" class="card" hidden>
-    <p id="stage" class="section-title">Descargando…</p>
-    <div class="bar"><div id="fill" class="fill"></div></div>
-    <p id="pct" class="muted">0 %</p>
-    <button type="button" id="cancel" class="link">Cancelar</button>
+  <section id="working" class="card" hidden aria-label="Trabajando">
+    <p id="working-title" class="h">Preparando tus archivos</p>
+    <ul id="steps" class="steps"></ul>
+    <div class="right"><button type="button" id="cancel" class="link">Cancelar</button></div>
   </section>
 
-  <section id="done" class="card done" hidden>
-    <p class="section-title">✅ Listo</p>
-    <p id="done-name" class="muted"></p>
+  <section id="done" class="card done" hidden aria-label="Terminado">
+    <div class="done-head">
+      <span class="done-check"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5 10 17.5 19 7"/></svg></span>
+      <p id="done-title" class="done-title"></p>
+    </div>
+    <ul id="done-files" class="files"></ul>
     <div class="actions">
-      <button type="button" id="show" class="btn btn-primary">📂 Mostrar en la carpeta</button>
+      <button type="button" id="show" class="btn btn-primary"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>Mostrar en la carpeta</button>
       <button type="button" id="again" class="btn btn-secondary">Descargar otra</button>
     </div>
-    <p class="label karaoke-label">¿Quieres también la versión para cantar?</p>
-    <div class="actions">
-      <button type="button" id="done-karaoke" class="btn btn-yellow">🎤 Hacer karaoke</button>
-      <button type="button" id="done-voz" class="btn btn-soft">🎙️ Solo voz</button>
-    </div>
   </section>
 
-  <section id="recent" class="card recent" hidden>
+  <section id="recent" hidden aria-label="Últimas descargas">
     <div class="recent-head">
-      <h2 class="section-title">Últimas descargas</h2>
+      <p class="h">Últimas descargas</p>
       <button type="button" id="pick" class="link">Elegir otra canción…</button>
     </div>
     <ul id="recent-list" class="recent-list"></ul>
