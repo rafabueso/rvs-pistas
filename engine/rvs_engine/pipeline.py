@@ -51,7 +51,7 @@ def run(out_dir: str, models_dir: str, url: Optional[str] = None, file: Optional
         raise EngineError("too_long", "El audio dura más de 20 minutos.")
 
     # 2) Voz completa y música
-    voc_model = _load("voces", models_dir, "separate", 17, 20, denoise=True)
+    voc_model = _load("voces", models_dir, "separate", 17, 20)
     progress("separate", 20, "Separando la voz de la música")
     vocals = voc_model.separate(mix, on_progress=lambda p: progress("separate", 20 + 45 * p, "Separando la voz de la música"))
     del voc_model
