@@ -55,6 +55,32 @@ export function detectStart(stems, sampleRate = 44100) {
   return 0;
 }
 
+// Frases del cantante: tramos en los que la voz suena, separados por silencios
+// o valles de al menos 0,35 s (respiraciones más cortas no parten la frase).
+// Devuelve [[ini, fin], …] en segundos.
+export function voicePhrases(voz, sampleRate = 44100, minGap = 0.35) {
+  const lv = windowLevels([voz], sampleRate);
+  if (lv.length < 40) return [];
+  const sorted = Float32Array.from(lv).sort();
+  const ref = sorted[Math.floor(sorted.length * 0.9)];
+  if (ref < 1e-4) return [];
+  const thr = ref * 0.1;
+  const raw = [];
+  let from = -1;
+  for (let i = 0; i <= lv.length; i++) {
+    const on = i < lv.length && lv[i] > thr;
+    if (on && from < 0) from = i;
+    if (!on && from >= 0) { raw.push([from * 0.05, i * 0.05]); from = -1; }
+  }
+  const phrases = [];
+  for (const seg of raw) {
+    const last = phrases[phrases.length - 1];
+    if (last && seg[0] - last[1] < minGap) last[1] = seg[1];
+    else phrases.push([seg[0], seg[1]]);
+  }
+  return phrases.filter(([a, b]) => b - a >= 0.5).map(([a, b]) => [round2(a), round2(b)]);
+}
+
 const SORPRESA = {
   pocos: { on: [9, 18], off: [3, 5] },
   normales: { on: [5, 11], off: [4, 7] },
@@ -62,9 +88,42 @@ const SORPRESA = {
 };
 export const SORPRESA_NIVELES = Object.keys(SORPRESA);
 
-// Modo "Sorpresa": la voz suena al principio y luego se corta y vuelve sin avisar.
-// Devuelve zonas silenciadas [[ini, fin], …] en segundos.
-export function makeSorpresa({ startSec = 0, endSec, nivel = 'normales', seed = 1, grace = 8 }) {
+// Cuántas frases suenan y cuántas se callan seguidas, según el nivel
+const POR_FRASES = {
+  pocos: { on: [3, 5], off: [1, 2] },
+  normales: { on: [2, 4], off: [1, 3] },
+  muchos: { on: [1, 3], off: [2, 4] },
+};
+
+// Modo "Sorpresa" siguiendo la voz: los cortes empiezan y acaban en los valles de
+// la onda. Se calla justo cuando tocaba entrar (o, a veces, a mitad de una
+// frase) y vuelve a sonar en un silencio posterior, tras una o varias frases.
+// Con pocas frases detectadas cae al reparto por tiempo.
+export function makeSorpresa({ startSec = 0, endSec, nivel = 'normales', seed = 1, grace = 8, phrases = null }) {
+  const ph = (phrases || []).filter(([, b]) => b > startSec);
+  if (ph.length < 6) return makeSorpresaPorTiempo({ startSec, endSec, nivel, seed, grace });
+  const cfg = POR_FRASES[nivel] || POR_FRASES.normales;
+  const rand = rng(seed);
+  const pick = ([a, b]) => a + Math.floor(rand() * (b - a + 1));
+  const zones = [];
+  let i = ph.findIndex(([, b]) => b > startSec + grace); // la voz suena al principio
+  if (i < 0) return zones;
+  i += 1 + pick([0, 1]); // y unas frases más antes del primer corte
+  while (i < ph.length - 1) {
+    const j = Math.min(ph.length - 1, i + pick(cfg.off)); // primera frase que vuelve a sonar
+    const prevEnd = i > 0 ? ph[i - 1][1] : startSec;
+    const [s0, e0] = ph[i];
+    // empieza en el silencio justo antes de la entrada, o a mitad de la frase
+    const ini = rand() < 0.3 ? s0 + (e0 - s0) * (0.3 + rand() * 0.4) : prevEnd + Math.min(0.1, (s0 - prevEnd) / 2);
+    // vuelve en el valle anterior a la frase j
+    const fin = (ph[j - 1][1] + ph[j][0]) / 2;
+    if (fin - ini >= 1.5 && fin <= endSec) zones.push([round2(ini), round2(fin)]);
+    i = j + pick(cfg.on);
+  }
+  return zones;
+}
+
+function makeSorpresaPorTiempo({ startSec = 0, endSec, nivel = 'normales', seed = 1, grace = 8 }) {
   const cfg = SORPRESA[nivel] || SORPRESA.normales;
   const rand = rng(seed);
   const between = ([a, b]) => a + rand() * (b - a);

@@ -105,7 +105,9 @@ app.whenReady().then(async () => {
 
     // pista de estudio: marca de inicio, Sorpresa y exportación recortada
     await ev(win, `document.getElementById('estudio').open = true`);
-    check('la tarjeta Pista de estudio existe', await ev(win, `!!document.getElementById('start-here') && document.getElementById('start-out').textContent.length > 0`));
+    check('la tarjeta Pista de estudio existe', await ev(win, `!!document.getElementById('trim-on') && document.getElementById('trim-opts').hidden`));
+    await ev(win, `document.getElementById('trim-on').click()`);
+    check('al marcar "Quitar el principio" salen sus opciones', await ev(win, `!document.getElementById('trim-opts').hidden`));
     await ev(win, `document.querySelector('[data-vozmode="sorpresa"]').click()`);
     check('Sorpresa se activa y muestra sus opciones', await ev(win, `!document.getElementById('sorpresa-opts').hidden && document.querySelector('[data-vozmode="sorpresa"]').getAttribute('aria-pressed') === 'true'`));
     await ev(win, `document.getElementById('sorpresa-nivel').value = 'muchos'; document.getElementById('sorpresa-nivel').dispatchEvent(new Event('change')); document.getElementById('sorpresa-otra').click();`);

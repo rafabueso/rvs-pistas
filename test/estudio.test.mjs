@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectStart, makeSorpresa, removeZoneAt, zonesToFrames, rng, MixEngine, renderToWav } from '../src/renderer/dsp/dsp.mjs';
+import { detectStart, voicePhrases, makeSorpresa, removeZoneAt, zonesToFrames, rng, MixEngine, renderToWav } from '../src/renderer/dsp/dsp.mjs';
 
 const SR = 44100;
 const tone = (hz, from, to, total, amp = 0.5) => {
@@ -80,4 +80,54 @@ test('exportar desde el inicio recorta y mantiene los cortes', async () => {
   for (let i = 1 * SR; i < 3 * SR; i += 50) sonando = Math.max(sonando, Math.abs(buf[Math.floor(i) * 2]));
   assert.ok(sonando > 8000, 'suena al principio');
   assert.ok(mudo < 200, `mudo en la zona (${mudo}) — zona 10–14 s = 5–9 s tras recortar`);
+});
+
+// Voz de prueba: frases de 3 s con 1 s de silencio entre ellas
+const frases = (n, from = 2) => {
+  const total = from + n * 4 + 2, l = new Float32Array(total * SR);
+  const spans = [];
+  for (let k = 0; k < n; k++) {
+    const a = from + k * 4, b = a + 3; spans.push([a, b]);
+    for (let i = Math.floor(a * SR); i < Math.floor(b * SR); i++) l[i] = Math.sin((2 * Math.PI * 300 * i) / SR) * 0.5;
+  }
+  return { stem: { l, r: l.slice() }, spans, total };
+};
+
+test('detecta las frases de la voz', () => {
+  const { stem, spans } = frases(10);
+  const ph = voicePhrases(stem, SR);
+  assert.equal(ph.length, 10);
+  ph.forEach(([a, b], k) => { assert.ok(Math.abs(a - spans[k][0]) < 0.2 && Math.abs(b - spans[k][1]) < 0.2, `frase ${k}: ${a}-${b}`); });
+});
+
+test('una respiración corta no parte la frase', () => {
+  const { stem } = frases(1);
+  const gapA = Math.floor(3 * SR), gapB = Math.floor(3.2 * SR);
+  for (let i = gapA; i < gapB; i++) { stem.l[i] = 0; stem.r[i] = 0; }
+  assert.equal(voicePhrases(stem, SR).length, 1);
+});
+
+test('Sorpresa sigue la voz: los cortes caen en valles y no en medio de una frase', () => {
+  const { stem, spans, total } = frases(30);
+  const phrases = voicePhrases(stem, SR);
+  let midInicio = 0, zonas = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    const z = makeSorpresa({ startSec: 2, endSec: total, seed, phrases });
+    assert.ok(z.length >= 2);
+    assert.ok(z[0][0] >= 2 + 8, 'la voz suena al principio');
+    z.forEach(([a, b], k) => {
+      zonas++;
+      assert.ok(b - a >= 1.5);
+      if (k) assert.ok(a > z[k - 1][1]);
+      // el final siempre en un silencio entre frases
+      assert.ok(!spans.some(([x, y]) => b > x + 0.15 && b < y - 0.15), `fin ${b} dentro de una frase`);
+      if (spans.some(([x, y]) => a > x + 0.15 && a < y - 0.15)) midInicio++;
+    });
+  }
+  assert.ok(midInicio > 0 && midInicio < zonas * 0.6, `algunos cortes a mitad de frase: ${midInicio}/${zonas}`);
+});
+
+test('Sorpresa sin frases detectadas vuelve al reparto por tiempo', () => {
+  const z = makeSorpresa({ startSec: 0, endSec: 120, seed: 3, phrases: [] });
+  assert.ok(z.length >= 3);
 });

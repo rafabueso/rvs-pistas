@@ -1,5 +1,5 @@
 import { Player, decodeStems } from './player.js';
-import { renderToWav, detectStart, makeSorpresa, removeZoneAt, zonesToFrames, SORPRESA_NIVELES } from './vendor/dsp.js';
+import { renderToWav, detectStart, voicePhrases, makeSorpresa, removeZoneAt, zonesToFrames, SORPRESA_NIVELES } from './vendor/dsp.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -30,7 +30,7 @@ const state = {
   project: null, player: null, peaks: [], seconds: 0,
   gains: [1, 1, 1], muted: [false, false, false], solo: [false, false, false],
   tempo: 1, semitones: 0, pos: 0, found: null, jobId: null, busy: false, exporting: false,
-  estudio: { trim: false, start: 0, mode: 'normal', nivel: 'normales', seed: 1, zones: [], coros: true },
+  estudio: { trim: false, start: 0, mode: 'normal', nivel: 'normales', seed: 1, zones: [], coros: true, phrases: [], auto: 0 },
 };
 
 // ---------- utilidades ----------
@@ -239,7 +239,7 @@ async function openProject(p) {
   if (state.player) { state.player.dispose(); state.player = null; }
   state.project = p; state.gains = [1, 1, 1]; state.muted = [false, false, false]; state.solo = [false, false, false];
   state.tempo = 1; state.semitones = 0;
-  state.estudio = { trim: false, start: 0, mode: 'normal', nivel: 'normales', seed: 1, zones: [], coros: true };
+  state.estudio = { trim: false, start: 0, mode: 'normal', nivel: 'normales', seed: 1, zones: [], coros: true, phrases: [], auto: 0 };
   syncEstudioUI();
   $('song-title').textContent = p.title; $('song-artist').textContent = p.artist || '';
   $('chip-key').textContent = keyName(p.key); $('chip-bpm').textContent = `${Math.round(p.bpm)} BPM`;
@@ -253,7 +253,12 @@ async function openProject(p) {
     const { peaks, seconds } = await player.load(p.id);
     state.peaks = peaks; state.seconds = seconds;
     drawWaves(); applyGains(); setPosition(0);
-    try { state.estudio.start = detectStart(await decodeForAnalysis(), 44100); syncEstudioUI(); } catch { /* sin marca automática: se pone a mano */ }
+    try {
+      const stems = await decodeForAnalysis();
+      state.estudio.start = state.estudio.auto = detectStart(stems, 44100);
+      state.estudio.phrases = voicePhrases(stems[0], 44100);
+      syncEstudioUI();
+    } catch { /* sin análisis: la marca se pone a mano y Sorpresa reparte por tiempo */ }
     drawOverlays();
   } catch (e) { notice(errText(e)); show('library'); refreshLibrary(); }
 }
@@ -312,6 +317,7 @@ function syncEstudioUI() {
   const e = state.estudio;
   $('trim-on').checked = e.trim;
   $('start-out').textContent = fmtTime(e.start);
+  $('trim-opts').hidden = !e.trim; $('trim-help').hidden = !e.trim;
   $('coros-follow').checked = e.coros;
   $('sorpresa-nivel').value = e.nivel;
   document.querySelectorAll('[data-vozmode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.vozmode === e.mode)));
@@ -346,18 +352,14 @@ function drawOverlays() {
 function newSorpresa() {
   const e = state.estudio;
   e.seed = (e.seed % 1000000) + 1 + Math.floor(Math.random() * 1000);
-  e.zones = makeSorpresa({ startSec: e.trim ? e.start : 0, endSec: state.seconds, nivel: e.nivel, seed: e.seed });
+  e.zones = makeSorpresa({ startSec: e.trim ? e.start : 0, endSec: state.seconds, nivel: e.nivel, seed: e.seed, phrases: e.phrases });
   pushZones(); drawOverlays();
 }
 
 $('trim-on').addEventListener('change', () => {
-  const e = state.estudio; e.trim = $('trim-on').checked;
+  const e = state.estudio; e.trim = $('trim-on').checked; syncEstudioUI();
   if (e.mode === 'sorpresa') newSorpresa(); else drawOverlays();
   if (e.trim) seekTo(e.start);
-});
-$('start-detect').addEventListener('click', async () => {
-  const e = state.estudio; e.start = detectStart(await decodeForAnalysis(), 44100); e.trim = true;
-  syncEstudioUI(); if (e.mode === 'sorpresa') newSorpresa(); else drawOverlays(); seekTo(e.start);
 });
 $('start-here').addEventListener('click', () => {
   const e = state.estudio; e.start = Math.round(state.pos * 10) / 10; e.trim = true;
