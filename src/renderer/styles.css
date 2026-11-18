@@ -120,3 +120,20 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px; }
 @media (prefers-reduced-motion: reduce) { #bar-fill { transition: none; } }
 .update { margin: 12px 28px 0; padding: 10px 16px; border-radius: var(--radius-m); background: var(--tint-sky); border: 1px solid var(--sky); color: var(--ink); font-weight: 700; }
 .update .link { font-weight: 800; }
+
+/* Pista de estudio */
+.estudio { margin-top: 14px; display: grid; gap: 14px; }
+.estudio > summary { cursor: pointer; font-weight: 700; display: flex; gap: 12px; align-items: baseline; list-style: none; }
+.estudio > summary::-webkit-details-marker { display: none; }
+.estudio > summary::before { content: '▸'; color: var(--ink-soft); }
+.estudio[open] > summary::before { content: '▾'; }
+.estudio-block { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.estudio-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.check { display: flex; gap: 10px; align-items: center; font-size: 14px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent-blue); }
+.estudio select { padding: 9px 12px; border-radius: var(--radius-s); border: 1px solid var(--ink-muted); background: var(--surface); color: var(--ink); font-size: 14px; }
+.presets .btn[aria-pressed="true"] { background: var(--action); color: var(--on-action); }
+.zone { position: absolute; top: 0; bottom: 0; background: rgba(248, 184, 62, 0.45); border-left: 2px solid var(--yellow); border-right: 2px solid var(--yellow); cursor: pointer; }
+.zone:hover { background: rgba(248, 184, 62, 0.65); }
+.trimmed { position: absolute; top: 0; bottom: 0; left: 0; background: rgba(8, 42, 73, 0.18); pointer-events: none; }
+.startmark { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: var(--orange); pointer-events: none; }

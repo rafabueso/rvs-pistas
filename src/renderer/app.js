@@ -1,5 +1,5 @@
 import { Player, decodeStems } from './player.js';
-import { renderToWav } from './vendor/dsp.js';
+import { renderToWav, detectStart, makeSorpresa, removeZoneAt, zonesToFrames, SORPRESA_NIVELES } from './vendor/dsp.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -30,6 +30,7 @@ const state = {
   project: null, player: null, peaks: [], seconds: 0,
   gains: [1, 1, 1], muted: [false, false, false], solo: [false, false, false],
   tempo: 1, semitones: 0, pos: 0, found: null, jobId: null, busy: false, exporting: false,
+  estudio: { trim: false, start: 0, mode: 'normal', nivel: 'normales', seed: 1, zones: [], coros: true },
 };
 
 // ---------- utilidades ----------
@@ -238,6 +239,8 @@ async function openProject(p) {
   if (state.player) { state.player.dispose(); state.player = null; }
   state.project = p; state.gains = [1, 1, 1]; state.muted = [false, false, false]; state.solo = [false, false, false];
   state.tempo = 1; state.semitones = 0;
+  state.estudio = { trim: false, start: 0, mode: 'normal', nivel: 'normales', seed: 1, zones: [], coros: true };
+  syncEstudioUI();
   $('song-title').textContent = p.title; $('song-artist').textContent = p.artist || '';
   $('chip-key').textContent = keyName(p.key); $('chip-bpm').textContent = `${Math.round(p.bpm)} BPM`;
   $('speed').value = '100'; buildTracks(); refreshControls();
@@ -250,6 +253,8 @@ async function openProject(p) {
     const { peaks, seconds } = await player.load(p.id);
     state.peaks = peaks; state.seconds = seconds;
     drawWaves(); applyGains(); setPosition(0);
+    try { state.estudio.start = detectStart(await decodeForAnalysis(), 44100); syncEstudioUI(); } catch { /* sin marca automática: se pone a mano */ }
+    drawOverlays();
   } catch (e) { notice(errText(e)); show('library'); refreshLibrary(); }
 }
 
@@ -269,7 +274,7 @@ $('play').addEventListener('click', async () => {
   const pl = state.player; if (!pl || !pl.node) return;
   if (pl.playing) { pl.pause(); setPlayIcon(false); } else { await pl.play(); setPlayIcon(true); }
 });
-$('restart').addEventListener('click', () => state.player && seekTo(0));
+$('restart').addEventListener('click', () => state.player && seekTo(state.estudio.trim ? state.estudio.start : 0));
 $('speed').addEventListener('input', () => { state.tempo = Number($('speed').value) / 100; state.player.setTempo(state.tempo); refreshControls(); });
 $('speed-reset').addEventListener('click', () => { $('speed').value = '100'; state.tempo = 1; state.player.setTempo(1); refreshControls(); });
 const setPitch = (v) => { state.semitones = Math.max(-6, Math.min(6, v)); state.player.setSemitones(state.semitones); refreshControls(); };
@@ -289,6 +294,87 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowRight' && tag !== 'INPUT') seekTo(state.pos + 5);
 });
 
+// ---------- pista de estudio ----------
+// Para detectar el inicio hace falta el audio: se decodifica una vez aparte del reproductor
+async function decodeForAnalysis() {
+  const ctx = new AudioContext({ sampleRate: 44100 });
+  try { return await decodeStems(state.project.id, ctx); } finally { ctx.close().catch(() => {}); }
+}
+
+const gatedStems = () => [true, state.estudio.coros, false];
+function pushZones() {
+  const e = state.estudio;
+  const zones = e.mode === 'sorpresa' ? e.zones : [];
+  if (state.player && state.player.node) state.player.setZones(zonesToFrames(zones, state.player.sampleRate), gatedStems());
+}
+
+function syncEstudioUI() {
+  const e = state.estudio;
+  $('trim-on').checked = e.trim;
+  $('start-out').textContent = fmtTime(e.start);
+  $('coros-follow').checked = e.coros;
+  $('sorpresa-nivel').value = e.nivel;
+  document.querySelectorAll('[data-vozmode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.vozmode === e.mode)));
+  $('sorpresa-opts').hidden = e.mode !== 'sorpresa';
+  $('zones-help').hidden = e.mode !== 'sorpresa';
+}
+
+function drawOverlays() {
+  const e = state.estudio;
+  TRACKS.forEach((_, i) => {
+    const wave = $(`wave-${i}`); if (!wave) return;
+    wave.querySelectorAll('.ov').forEach((n) => n.remove());
+    if (!state.seconds) return;
+    if (e.trim && e.start > 0) {
+      const t = document.createElement('div'); t.className = 'ov trimmed'; t.style.width = `${(e.start / state.seconds) * 100}%`;
+      const m = document.createElement('div'); m.className = 'ov startmark'; m.style.left = `${(e.start / state.seconds) * 100}%`;
+      wave.append(t, m);
+    }
+    const follows = i === 0 || (i === 1 && e.coros);
+    if (e.mode === 'sorpresa' && follows) {
+      e.zones.forEach(([a, b]) => {
+        const z = document.createElement('div'); z.className = 'ov zone';
+        z.style.left = `${(a / state.seconds) * 100}%`; z.style.width = `${((b - a) / state.seconds) * 100}%`;
+        z.title = 'Silencio de voz. Pulsa para devolver la voz aquí';
+        z.addEventListener('click', (ev) => { ev.stopPropagation(); e.zones = removeZoneAt(e.zones, a); pushZones(); drawOverlays(); });
+        wave.append(z);
+      });
+    }
+  });
+}
+
+function newSorpresa() {
+  const e = state.estudio;
+  e.seed = (e.seed % 1000000) + 1 + Math.floor(Math.random() * 1000);
+  e.zones = makeSorpresa({ startSec: e.trim ? e.start : 0, endSec: state.seconds, nivel: e.nivel, seed: e.seed });
+  pushZones(); drawOverlays();
+}
+
+$('trim-on').addEventListener('change', () => {
+  const e = state.estudio; e.trim = $('trim-on').checked;
+  if (e.mode === 'sorpresa') newSorpresa(); else drawOverlays();
+  if (e.trim) seekTo(e.start);
+});
+$('start-detect').addEventListener('click', async () => {
+  const e = state.estudio; e.start = detectStart(await decodeForAnalysis(), 44100); e.trim = true;
+  syncEstudioUI(); if (e.mode === 'sorpresa') newSorpresa(); else drawOverlays(); seekTo(e.start);
+});
+$('start-here').addEventListener('click', () => {
+  const e = state.estudio; e.start = Math.round(state.pos * 10) / 10; e.trim = true;
+  syncEstudioUI(); if (e.mode === 'sorpresa') newSorpresa(); else drawOverlays();
+});
+$('start-listen').addEventListener('click', async () => {
+  const e = state.estudio; seekTo(e.start);
+  if (state.player && !state.player.playing) { await state.player.play(); setPlayIcon(true); }
+});
+document.querySelectorAll('[data-vozmode]').forEach((b) => b.addEventListener('click', () => {
+  const e = state.estudio; e.mode = b.dataset.vozmode; syncEstudioUI();
+  if (e.mode === 'sorpresa') newSorpresa(); else { pushZones(); drawOverlays(); }
+}));
+$('sorpresa-nivel').addEventListener('change', () => { state.estudio.nivel = SORPRESA_NIVELES.includes($('sorpresa-nivel').value) ? $('sorpresa-nivel').value : 'normales'; newSorpresa(); });
+$('sorpresa-otra').addEventListener('click', newSorpresa);
+$('coros-follow').addEventListener('change', () => { state.estudio.coros = $('coros-follow').checked; pushZones(); drawOverlays(); });
+
 // ---------- exportar ----------
 async function exportMix(format) {
   if (state.exporting || !state.player) return;
@@ -302,12 +388,15 @@ async function exportMix(format) {
     try { stems = await decodeStems(state.project.id, ctx); } finally { ctx.close().catch(() => {}); }
     const blob = await renderToWav(stems, {
       gains: [0, 1, 2].map(effectiveGain), tempo: state.tempo, semitones: state.semitones, sampleRate: 44100, vocal: [true, true, false],
+      startFrame: state.estudio.trim ? Math.round(state.estudio.start * 44100) : 0,
+      zones: state.estudio.mode === 'sorpresa' ? zonesToFrames(state.estudio.zones, 44100) : null, gated: gatedStems(),
       onProgress: (p) => { status.textContent = `Creando la mezcla… ${Math.round(p * 100)} %`; },
     });
     status.textContent = 'Elige dónde guardarla…';
     const parts = [state.project.title];
     if (state.tempo !== 1) parts.push(`${Math.round(state.tempo * 100)}%`);
     if (state.semitones !== 0) parts.push(`${state.semitones > 0 ? '+' : ''}${state.semitones}st`);
+    if (state.estudio.mode === 'sorpresa') parts.push('sorpresa');
     const path = await api.saveExport(await blob.arrayBuffer(), format, parts.join(' · '));
     status.textContent = path ? 'Guardada ✓' : '';
     if (path) notice('Mezcla guardada.', 'info');

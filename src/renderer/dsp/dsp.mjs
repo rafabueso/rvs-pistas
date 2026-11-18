@@ -11,6 +11,11 @@ export const clampSemitones = (s) => Math.min(6, Math.max(-6, Math.round(s)));
 // memoria interna y sin este relleno se perdería la cola de la canción.
 const TAIL_PAD = 44100;
 
+// Cortes de voz: zonas [inicio, fin) en frames de la canción original, donde las
+// pistas marcadas como "con puerta" se silencian. La puerta cierra y abre en
+// unos 12 ms para que no se oigan chasquidos.
+const GATE_COEF = 1 - Math.exp(-1 / (0.012 * 44100));
+
 // Origen de audio para SimpleFilter: suma las pistas con su volumen.
 class MixSource {
   constructor(stems, vocal = []) {
@@ -22,11 +27,46 @@ class MixSource {
     this.length = stems.reduce((m, s) => Math.max(m, s.l.length), 0);
     this.target = stems.map(() => 1);
     this.current = stems.map(() => 1);
+    this.zones = new Int32Array(0); // [ini0, fin0, ini1, fin1, …] ordenadas
+    this.gated = stems.map(() => false);
+    this.gate = 1; // estado suavizado de la puerta (1 = abierta)
+    this.env = new Float32Array(0);
+  }
+
+  setZones(zones, gated) {
+    this.zones = zones instanceof Int32Array ? zones : Int32Array.from(zones || []);
+    this.gated = this.stems.map((_, k) => Boolean(gated && gated[k]));
+  }
+
+  // Primera zona cuyo final queda después de `pos`
+  zoneFrom(pos) {
+    const z = this.zones;
+    let lo = 0, hi = z.length / 2;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (z[mid * 2 + 1] <= pos) lo = mid + 1; else hi = mid; }
+    return lo;
+  }
+
+  // Envolvente de la puerta para este bloque (una sola vez para todas las pistas)
+  fillGate(position, frames) {
+    if (this.env.length < frames) this.env = new Float32Array(frames);
+    const z = this.zones, n = z.length / 2, env = this.env;
+    let zi = this.zoneFrom(position), gate = this.gate;
+    for (let i = 0; i < frames; i++) {
+      const p = position + i;
+      while (zi < n && z[zi * 2 + 1] <= p) zi++;
+      const target = zi < n && p >= z[zi * 2] ? 0 : 1;
+      gate += (target - gate) * GATE_COEF;
+      env[i] = gate;
+    }
+    this.gate = gate;
   }
 
   extract(out, numFrames, position) {
     const frames = Math.max(0, Math.min(numFrames, this.length + TAIL_PAD - position));
     out.fill(0, 0, numFrames * 2);
+    const useGate = this.zones.length > 0 && frames > 0;
+    if (useGate) this.fillGate(position, frames);
+    else this.gate = 1;
     for (let k = 0; k < this.stems.length; k++) {
       const { l, r } = this.stems[k];
       const from = this.current[k];
@@ -42,12 +82,14 @@ class MixSource {
         fm.r.render(this.tr, position, frames, this.ratio);
         sl = this.tl; sr = this.tr; off = 0;
       }
+      const gate = useGate && this.gated[k] ? this.env : null;
       for (let i = 0; i < frames; i++) {
         g += step;
         const p = position + i;
         if (p < l.length) {
-          out[i * 2] += sl[off + i] * g;
-          out[i * 2 + 1] += sr[off + i] * g;
+          const m = gate ? g * gate[i] : g;
+          out[i * 2] += sl[off + i] * m;
+          out[i * 2 + 1] += sr[off + i] * m;
         }
       }
       this.current[k] = to;
@@ -86,6 +128,7 @@ export class MixEngine {
     this.source.ratio = Math.pow(2, v / 12);
   }
   setGain(index, value) { this.source.target[index] = Math.max(0, Math.min(1.5, value)); }
+  setZones(zones, gated) { this.source.setZones(zones, gated); }
   seek(frame) {
     this.filter.sourcePosition = Math.max(0, Math.min(this.source.length, Math.floor(frame)));
     this.ended = false;
@@ -107,12 +150,15 @@ export class MixEngine {
 
 // Exporta la mezcla actual (volúmenes, tempo y tono) a WAV de 16 bits.
 // onProgress(0..1); shouldCancel() permite abortar. Cede el hilo entre bloques.
-export async function renderToWav(stems, { gains, tempo, semitones, sampleRate, onProgress, shouldCancel, vocal = [] }) {
+export async function renderToWav(stems, { gains, tempo, semitones, sampleRate, onProgress, shouldCancel, vocal = [], startFrame = 0, zones = null, gated = null }) {
   const engine = new MixEngine(stems, vocal);
   gains.forEach((g, i) => { engine.setGain(i, g); engine.source.current[i] = g; });
   engine.setTempo(tempo);
   engine.setSemitones(semitones);
-  const expected = Math.ceil(engine.length / tempo);
+  if (zones && zones.length) engine.setZones(zones, gated);
+  const from = Math.max(0, Math.min(engine.length, Math.floor(startFrame)));
+  if (from > 0) engine.seek(from);
+  const expected = Math.ceil((engine.length - from) / tempo);
   const block = 16384;
   const left = new Float32Array(block);
   const right = new Float32Array(block);
@@ -143,3 +189,5 @@ export async function renderToWav(stems, { gains, tempo, semitones, sampleRate, 
   v.setUint16(32, 4, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, dataBytes, true);
   return new Blob([header, ...chunks], { type: 'audio/wav' });
 }
+
+export * from './estudio.mjs';

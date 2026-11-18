@@ -134,6 +134,40 @@
           <div id="export-status" class="control-foot muted" aria-live="polite"></div>
         </div>
       </div>
+
+      <details class="card estudio" id="estudio">
+        <summary>Pista de estudio <span class="muted">Recortar el inicio y cortar la voz</span></summary>
+
+        <div class="estudio-block">
+          <label class="check"><input id="trim-on" type="checkbox"> <span>Empezar la pista en la marca de inicio</span></label>
+          <div class="estudio-row">
+            <span class="label">Inicio <b id="start-out">0:00</b></span>
+            <button id="start-detect" class="btn btn-soft" type="button">Detectar</button>
+            <button id="start-here" class="btn btn-soft" type="button">Poner aquí</button>
+            <button id="start-listen" class="btn btn-soft" type="button">Escuchar desde el inicio</button>
+          </div>
+          <p class="muted">La app busca sola dónde arranca la música. Si hay notas de presentación, reproduce hasta donde empieza la canción y pulsa "Poner aquí". Al guardar, la mezcla empieza en esa marca.</p>
+        </div>
+
+        <div class="estudio-block">
+          <span class="label" id="voz-mode-label">Voz del cantante</span>
+          <div class="presets" role="group" aria-labelledby="voz-mode-label">
+            <button class="btn btn-soft" data-vozmode="normal" aria-pressed="true" type="button">Normal</button>
+            <button class="btn btn-soft" data-vozmode="sorpresa" aria-pressed="false" type="button">Sorpresa</button>
+          </div>
+          <div id="sorpresa-opts" class="estudio-row" hidden>
+            <label class="label" for="sorpresa-nivel">Cortes</label>
+            <select id="sorpresa-nivel">
+              <option value="pocos">Pocos</option>
+              <option value="normales" selected>Normales</option>
+              <option value="muchos">Muchos</option>
+            </select>
+            <button id="sorpresa-otra" class="btn btn-soft" type="button">Otra versión</button>
+          </div>
+          <label class="check"><input id="coros-follow" type="checkbox" checked> <span>Silenciar también los coros cuando se corta la voz</span></label>
+          <p id="zones-help" class="muted" hidden>La voz empieza sonando y se corta en las zonas sombreadas. Pulsa una zona para devolver la voz ahí.</p>
+        </div>
+      </details>
     </section>
 
     <!-- Biblioteca -->

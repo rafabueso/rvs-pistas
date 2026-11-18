@@ -103,6 +103,29 @@ app.whenReady().then(async () => {
     const mp3 = fs.readFileSync(nextSave);
     check('el MP3 exportado existe', mp3.length > 10000 && (mp3.slice(0, 3).toString() === 'ID3' || mp3[0] === 0xff), `${mp3.length} bytes`);
 
+    // pista de estudio: marca de inicio, Sorpresa y exportación recortada
+    await ev(win, `document.getElementById('estudio').open = true`);
+    check('la tarjeta Pista de estudio existe', await ev(win, `!!document.getElementById('start-here') && document.getElementById('start-out').textContent.length > 0`));
+    await ev(win, `document.querySelector('[data-vozmode="sorpresa"]').click()`);
+    check('Sorpresa se activa y muestra sus opciones', await ev(win, `!document.getElementById('sorpresa-opts').hidden && document.querySelector('[data-vozmode="sorpresa"]').getAttribute('aria-pressed') === 'true'`));
+    await ev(win, `document.getElementById('sorpresa-nivel').value = 'muchos'; document.getElementById('sorpresa-nivel').dispatchEvent(new Event('change')); document.getElementById('sorpresa-otra').click();`);
+    const zonas = await ev(win, `document.querySelectorAll('#wave-0 .zone').length`);
+    console.log('  zonas de silencio en la voz:', zonas, '| en los coros:', await ev(win, `document.querySelectorAll('#wave-1 .zone').length`));
+    check('los coros siguen los cortes de la voz', (await ev(win, `document.querySelectorAll('#wave-1 .zone').length`)) === zonas);
+    await ev(win, `(() => { const w = document.getElementById('wave-2'); const r = w.getBoundingClientRect(); w.dispatchEvent(new MouseEvent('click', { clientX: r.left + r.width * 0.25, clientY: r.top + 10, bubbles: true })); })()`);
+    await ev(win, `document.getElementById('start-here').click()`);
+    const startTxt = await ev(win, `document.getElementById('start-out').textContent`);
+    check('"Poner aquí" mueve la marca de inicio', startTxt !== '0:00' && (await ev(win, `document.getElementById('trim-on').checked && !!document.querySelector('#wave-0 .startmark')`)), startTxt);
+    nextSave = path.join(out, 'estudio.wav');
+    await ev(win, `document.getElementById('export-wav').click()`);
+    await waitFor(win, `document.getElementById('export-status').textContent.includes('Guardada')`, 120000, 'exportar con inicio recortado');
+    const wav2 = fs.readFileSync(nextSave);
+    const secs2 = wav2.readUInt32LE(40) / 4 / 44100;
+    const [mm, ss] = startTxt.split(':').map(Number);
+    const exp2 = (song.durationSec - (mm * 60 + ss)) / 0.75;
+    check('la mezcla empieza en la marca de inicio', Math.abs(secs2 - exp2) < 1.2, `${secs2.toFixed(2)} s, esperado ≈ ${exp2.toFixed(2)} s`);
+    await shot(win, '04b-estudio.png');
+
     // biblioteca
     await ev(win, `document.getElementById('back').click()`);
     await sleep(800);
