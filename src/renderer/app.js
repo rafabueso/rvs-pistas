@@ -608,7 +608,7 @@ function resnapStart() {
 }
 function goStart() { const e = state.estudio; seekTo((e.trim ? e.start : 0) - countSec(), true); }
 function beatsChanged() { resnapStart(); syncEstudioUI(); pushClick(); }
-const setBpm = (v) => { const e = state.estudio; e.bpm = Math.max(40, Math.min(240, Math.round(v * 10) / 10)); beatsChanged(); };
+const setBpm = (v) => { const e = state.estudio; e.bpm = Math.max(40, Math.min(240, Math.round(v * 100) / 100)); beatsChanged(); };
 const wrapG0 = (g) => ((g % beatSec()) + beatSec()) % beatSec();
 
 $('metro-mode').addEventListener('change', () => { state.estudio.metro = Number($('metro-mode').value) || 0; beatsChanged(); });
