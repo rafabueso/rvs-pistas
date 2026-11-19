@@ -154,6 +154,7 @@
           <div class="presets" role="group" aria-labelledby="voz-mode-label">
             <button class="btn btn-soft" data-vozmode="normal" aria-pressed="true" type="button">Normal</button>
             <button class="btn btn-soft" data-vozmode="sorpresa" aria-pressed="false" type="button">Sorpresa</button>
+            <button class="btn btn-soft" data-vozmode="ayuda" aria-pressed="false" type="button">Ayuda</button>
           </div>
           <div id="sorpresa-opts" class="estudio-row" hidden>
             <label class="label" for="sorpresa-nivel">Cuántos cortes</label>
@@ -165,8 +166,60 @@
             <button id="sorpresa-otra" class="btn btn-soft" type="button">Otra versión</button>
             <button id="zone-add" class="btn btn-soft" type="button">+ Añadir hueco</button>
           </div>
+          <div id="ayuda-opts" class="estudio-row" hidden>
+            <label class="label" for="ayuda-seg">La voz suena al entrar</label>
+            <select id="ayuda-seg">
+              <option value="2">2 segundos</option>
+              <option value="3">3 segundos</option>
+              <option value="4" selected>4 segundos</option>
+              <option value="6">6 segundos</option>
+              <option value="8">8 segundos</option>
+            </select>
+            <label class="label" for="ayuda-gap">Entrada tras un silencio de</label>
+            <select id="ayuda-gap">
+              <option value="1">1 segundo</option>
+              <option value="1.5" selected>1,5 segundos</option>
+              <option value="2">2 segundos</option>
+              <option value="3">3 segundos</option>
+            </select>
+            <button id="zone-add-ayuda" class="btn btn-soft" type="button">+ Añadir hueco</button>
+          </div>
           <label class="check"><input id="coros-follow" type="checkbox" checked> <span>Silenciar también los coros cuando se corta la voz</span></label>
-          <p id="zones-help" class="muted" hidden>Los huecos amarillos de la franja "Edición" son los silencios de voz. Arrástralos para moverlos, tira de sus bordes para alargarlos o acortarlos, pulsa × para quitarlos, o arrastra sobre un espacio vacío de la franja para crear uno nuevo. Las ondas se pueden ampliar con − y + o con Ctrl y la rueda.</p>
+          <p id="zones-help" class="muted" hidden>Los huecos amarillos de la franja "Edición" son los silencios de voz (en Ayuda, todo lo que queda entre entradas). Arrástralos para moverlos, tira de sus bordes para alargarlos o acortarlos, pulsa × para quitarlos, o arrastra sobre un espacio vacío de la franja para crear uno nuevo. Las ondas se pueden ampliar con − y + o con Ctrl y la rueda.</p>
+        </div>
+
+        <div class="estudio-block">
+          <span class="label">Metrónomo y claqueta</span>
+          <div class="estudio-row">
+            <label class="label" for="metro-mode">Metrónomo</label>
+            <select id="metro-mode">
+              <option value="0" selected>Sin metrónomo</option>
+              <option value="1">Tempo real (1×)</option>
+              <option value="2">Medio tempo (0,5×)</option>
+            </select>
+            <label class="label" for="metro-vol">Volumen</label>
+            <input id="metro-vol" type="range" min="10" max="100" value="60">
+            <label class="label" for="count-mode">Claqueta inicial</label>
+            <select id="count-mode">
+              <option value="0" selected>Sin claqueta</option>
+              <option value="4">4 tiempos</option>
+              <option value="8">8 tiempos (el 5 suena más agudo)</option>
+            </select>
+          </div>
+          <div id="beat-opts" class="estudio-row" hidden>
+            <span class="label">Pulso</span>
+            <button id="bpm-down" class="pill" type="button" aria-label="Bajar el tempo medio punto">−</button>
+            <b id="bpm-out">120</b> <span class="muted">BPM</span>
+            <button id="bpm-up" class="pill" type="button" aria-label="Subir el tempo medio punto">+</button>
+            <button id="bpm-half" class="pill" type="button" title="Si el clic va al doble de rápido">÷2</button>
+            <button id="bpm-double" class="pill" type="button" title="Si el clic va a la mitad de rápido">×2</button>
+            <button id="beat-left" class="pill" type="button" aria-label="Adelantar el clic un poco" title="Adelantar el clic">◀</button>
+            <button id="beat-right" class="pill" type="button" aria-label="Retrasar el clic un poco" title="Retrasar el clic">▶</button>
+            <button id="beat-here" class="btn btn-soft" type="button" title="Para a la altura de un golpe de la música y pulsa">Un pulso cae aquí</button>
+            <button id="beat-auto" class="btn btn-soft" type="button">Detectar de nuevo</button>
+            <button id="click-listen" class="btn btn-soft" type="button">Probar desde el inicio</button>
+          </div>
+          <p id="beat-help" class="muted" hidden>Dale a Probar y comprueba que los clics caen con el ritmo de la música. Si van al doble o a la mitad, usa ÷2 o ×2. Para afinar, pulsa ◀ ▶ o para la reproducción sobre un golpe y pulsa "Un pulso cae aquí". Las rayitas de la franja Edición marcan los pulsos.</p>
         </div>
       </details>
     </section>

@@ -169,6 +169,32 @@ app.whenReady().then(async () => {
     check('la mezcla empieza en la marca de inicio', Math.abs(secs2 - exp2) < 1.6, `${secs2.toFixed(2)} s, esperado ≈ ${exp2.toFixed(2)} s`);
     await shot(win, '04b-estudio.png');
 
+    // modo Ayuda, metrónomo y claqueta
+    await ev(win, `document.getElementById('trim-on').click()`); // sin recorte: el inicio es 0
+    await ev(win, `document.querySelector('[data-vozmode="ayuda"]').click()`);
+    check('Ayuda se activa y muestra sus opciones', await ev(win, `!document.getElementById('ayuda-opts').hidden && document.querySelector('[data-vozmode="ayuda"]').getAttribute('aria-pressed') === 'true'`));
+    console.log('  huecos de Ayuda:', await ev(win, `document.querySelectorAll('#strip-lane .zbar:not(.ghost)').length`));
+    await ev(win, `document.querySelector('[data-vozmode="normal"]').click()`);
+    check('el metrónomo y la claqueta enseñan sus controles de pulso', await ev(win, `(() => { const m = document.getElementById('metro-mode'); m.value = '1'; m.dispatchEvent(new Event('change')); const c = document.getElementById('count-mode'); c.value = '8'; c.dispatchEvent(new Event('change')); return !document.getElementById('beat-opts').hidden; })()`));
+    const bpmTxt = await ev(win, `document.getElementById('bpm-out').textContent`);
+    const bpmNum = parseFloat(bpmTxt);
+    check('el pulso detectado es un tempo razonable', bpmNum > 50 && bpmNum < 220, `${bpmTxt} BPM`);
+    await ev(win, `document.getElementById('bpm-half').click(); document.getElementById('bpm-double').click();`);
+    check('×2 y ÷2 vuelven al mismo tempo', parseFloat(await ev(win, `document.getElementById('bpm-out').textContent`)) === bpmNum);
+    await ev(win, `document.getElementById('click-listen').click()`);
+    await sleep(600);
+    const tclaq = await ev(win, `document.getElementById('time').textContent`);
+    console.log('  al probar con claqueta, el contador dice:', tclaq);
+    await ev(win, `document.getElementById('play').click()`);
+    nextSave = path.join(out, 'claqueta.wav');
+    await ev(win, `document.getElementById('export-wav').click()`);
+    await waitFor(win, `document.getElementById('export-status').textContent.includes('Guardada')`, 120000, 'exportar con claqueta y metrónomo');
+    const wav3 = fs.readFileSync(nextSave);
+    const secs3 = wav3.readUInt32LE(40) / 4 / 44100;
+    const exp3 = (song.durationSec + (8 * 60) / bpmNum) / 0.75;
+    check('el archivo incluye la claqueta de 8 tiempos antes de la canción', Math.abs(secs3 - exp3) < 0.5, `${secs3.toFixed(2)} s, esperado ≈ ${exp3.toFixed(2)} s`);
+    await shot(win, '04d-claqueta.png');
+
     // biblioteca
     await ev(win, `document.getElementById('back').click()`);
     await sleep(800);

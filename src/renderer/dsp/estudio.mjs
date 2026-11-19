@@ -188,3 +188,22 @@ export function snapTime(t, points, tol) {
   for (const p of points) { const x = Math.abs(p - t); if (x <= d) { best = p; d = x; } }
   return best;
 }
+
+// Modo "Ayuda": la voz solo suena al principio de cada entrada (la primera frase y
+// las que llegan tras un silencio de `gap` segundos o más); el resto queda en silencio.
+// Devuelve zonas silenciadas [[ini, fin], …] en segundos.
+export function makeAyuda({ phrases = [], endSec, vozSeg = 4, gap = 1.5, lead = 0.2 }) {
+  const entries = phrases.filter((p, k) => k === 0 || p[0] - phrases[k - 1][1] >= gap);
+  if (!entries.length) return [];
+  const on = [];
+  for (const [s0] of entries) {
+    const a = Math.max(0, s0 - lead), b = s0 + vozSeg;
+    const last = on[on.length - 1];
+    if (last && a <= last[1]) last[1] = Math.max(last[1], b); else on.push([a, b]);
+  }
+  const zones = [];
+  let t = 0;
+  for (const [a, b] of on) { if (a - t >= 0.5) zones.push([t, a]); t = b; }
+  if (endSec - t >= 0.5) zones.push([t, endSec]);
+  return zones.map(([a, b]) => [round2(a), round2(Math.min(b, endSec))]);
+}

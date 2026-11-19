@@ -16,6 +16,15 @@ const TAIL_PAD = 44100;
 // unos 12 ms para que no se oigan chasquidos.
 const GATE_COEF = 1 - Math.exp(-1 / (0.012 * 44100));
 
+// Clics de metrónomo y de cuenta atrás: pitidos cortos que se mezclan ANTES del
+// cambio de velocidad y de tono, así viajan con la música y caen siempre en su
+// sitio. Su frecuencia se compensa para que el tono no cambie con los semitonos.
+const SR = 44100;
+const CLICK_LEN = Math.round(0.06 * SR);
+const CLICK_TAU = 0.012 * SR;
+const CLICK_ATTACK = 0.0008 * SR;
+export const CLICK_HZ = { count: 1000, accent: 1800, metro: 800 };
+
 // Origen de audio para SimpleFilter: suma las pistas con su volumen.
 class MixSource {
   constructor(stems, vocal = []) {
@@ -31,6 +40,8 @@ class MixSource {
     this.gated = stems.map(() => false);
     this.gate = 1; // estado suavizado de la puerta (1 = abierta)
     this.env = new Float32Array(0);
+    this.pad = 0; // silencio previo (frames) donde suena la cuenta atrás
+    this.click = null;
   }
 
   setZones(zones, gated) {
@@ -61,40 +72,81 @@ class MixSource {
     this.gate = gate;
   }
 
+  // `position` cuenta desde el principio del relleno; en la canción es q0 = position - pad.
   extract(out, numFrames, position) {
-    const frames = Math.max(0, Math.min(numFrames, this.length + TAIL_PAD - position));
+    const pad = this.pad;
+    const frames = Math.max(0, Math.min(numFrames, this.length + pad + TAIL_PAD - position));
     out.fill(0, 0, numFrames * 2);
-    const useGate = this.zones.length > 0 && frames > 0;
-    if (useGate) this.fillGate(position, frames);
+    const q0 = position - pad;
+    const lead = Math.max(0, Math.min(frames, -q0)); // frames antes de que empiece la canción
+    const body = frames - lead;
+    const useGate = this.zones.length > 0 && body > 0;
+    if (useGate) this.fillGate(q0 + lead, body);
     else this.gate = 1;
-    for (let k = 0; k < this.stems.length; k++) {
+    const sp = q0 + lead;
+    for (let k = 0; k < this.stems.length && body > 0; k++) {
       const { l, r } = this.stems[k];
       const from = this.current[k];
       const to = this.target[k];
       if (from === 0 && to === 0) continue;
-      const step = frames > 0 ? (to - from) / frames : 0;
+      const step = (to - from) / body;
       let g = from;
       const fm = this.formant[k];
-      let sl = l, sr = r, off = position;
-      if (fm && this.ratio !== 1 && frames > 0) {
-        if (this.tl.length < frames) { this.tl = new Float32Array(frames); this.tr = new Float32Array(frames); }
-        fm.l.render(this.tl, position, frames, this.ratio);
-        fm.r.render(this.tr, position, frames, this.ratio);
+      let sl = l, sr = r, off = sp;
+      if (fm && this.ratio !== 1) {
+        if (this.tl.length < body) { this.tl = new Float32Array(body); this.tr = new Float32Array(body); }
+        fm.l.render(this.tl, sp, body, this.ratio);
+        fm.r.render(this.tr, sp, body, this.ratio);
         sl = this.tl; sr = this.tr; off = 0;
       }
       const gate = useGate && this.gated[k] ? this.env : null;
-      for (let i = 0; i < frames; i++) {
+      for (let i = 0; i < body; i++) {
         g += step;
-        const p = position + i;
-        if (p < l.length) {
+        if (sp + i < l.length) {
           const m = gate ? g * gate[i] : g;
-          out[i * 2] += sl[off + i] * m;
-          out[i * 2 + 1] += sr[off + i] * m;
+          out[(lead + i) * 2] += sl[off + i] * m;
+          out[(lead + i) * 2 + 1] += sr[off + i] * m;
         }
       }
       this.current[k] = to;
     }
+    if (this.click && frames > 0) this.addClicks(out, q0, frames);
     return frames;
+  }
+
+  setClick(cfg) { this.click = cfg || null; }
+
+  // Suma los clics que caen en [q0, q0 + frames) (tiempos en frames de la canción)
+  addClicks(out, q0, frames) {
+    const c = this.click, P = c.period;
+    if (!(P > 100)) return;
+    const lo = q0 - CLICK_LEN, hi = q0 + frames;
+    if (c.count > 0) { // cuenta atrás: termina un pulso antes del inicio
+      for (let i = 1; i <= c.count; i++) {
+        const b = Math.round(c.start - (c.count - i + 1) * P);
+        if (b >= lo && b < hi) this.blip(out, q0, frames, b, c.count === 8 && i === 5 ? CLICK_HZ.accent : CLICK_HZ.count, c.countVol);
+      }
+    }
+    if (c.every > 0 && c.vol > 0) { // metrónomo sobre la rejilla, desde el inicio
+      const k0 = Math.ceil((lo - c.g0) / P), k1 = Math.floor((hi - c.g0) / P);
+      const kStart = Math.ceil((c.start - c.g0) / P - 1e-9);
+      for (let k = k0; k <= k1; k++) {
+        const b = Math.round(c.g0 + k * P);
+        if (b < c.start - 1 || (k - kStart) % c.every !== 0) continue;
+        if (b >= lo && b < hi) this.blip(out, q0, frames, b, CLICK_HZ.metro, c.vol);
+      }
+    }
+  }
+
+  blip(out, q0, frames, b, hz, vol) {
+    const w = (2 * Math.PI * hz) / this.ratio / SR;
+    const amp = 0.6 * vol;
+    for (let j = Math.max(0, b - q0); j < frames; j++) {
+      const t = q0 + j - b;
+      if (t >= CLICK_LEN) break;
+      const v = amp * Math.sin(w * t) * Math.exp(-t / CLICK_TAU) * Math.min(1, (t + 1) / CLICK_ATTACK);
+      out[j * 2] += v; out[j * 2 + 1] += v;
+    }
   }
 }
 
@@ -108,14 +160,14 @@ export class MixEngine {
   }
 
   get length() { return this.source.length; }
-  get position() { return this.filter.sourcePosition; }
+  get position() { return this.filter.sourcePosition - this.source.pad; }
 
   // Trabajo repartido: hasta `frames` ventanas de formantes por llamada (unos 2 s por delante)
   prefetch(frames = 2) {
     if (this.source.ratio === 1) return;
     const chans = [];
     this.source.formant.forEach((f) => { if (f) chans.push(f.l, f.r); });
-    const pos = this.filter.sourcePosition;
+    const pos = Math.max(0, this.filter.sourcePosition - this.source.pad);
     for (let i = 0, k = 0, idle = 0; i < frames && idle < chans.length; k = (k + 1) % chans.length) {
       if (chans[k].prefetchOne(pos, 88200, this.source.ratio)) { i++; idle = 0; } else idle++;
     }
@@ -129,9 +181,21 @@ export class MixEngine {
   }
   setGain(index, value) { this.source.target[index] = Math.max(0, Math.min(1.5, value)); }
   setZones(zones, gated) { this.source.setZones(zones, gated); }
-  seek(frame) {
-    this.filter.sourcePosition = Math.max(0, Math.min(this.source.length, Math.floor(frame)));
+  seek(frame) { // en frames de la canción; con cuenta atrás activa admite valores negativos
+    this.filter.sourcePosition = Math.max(-this.source.pad, Math.min(this.source.length, Math.floor(frame))) + this.source.pad;
     this.ended = false;
+  }
+
+  // cfg: { period, g0, start, every (0 = sin metrónomo, 1 = cada pulso, 2 = cada dos), vol, count (0, 4 u 8), countVol }
+  // o null para quitarlo. Todo en frames de la canción.
+  setClick(cfg) {
+    const pad = cfg && cfg.count > 0 ? Math.ceil(cfg.count * cfg.period) + 2048 : 0;
+    if (pad !== this.source.pad) {
+      const here = this.position;
+      this.source.pad = pad;
+      this.filter.sourcePosition = Math.max(-pad, here) + pad;
+    }
+    this.source.setClick(cfg);
   }
 
   // Rellena left/right con numFrames; devuelve cuántos frames reales ha dado.
@@ -150,14 +214,16 @@ export class MixEngine {
 
 // Exporta la mezcla actual (volúmenes, tempo y tono) a WAV de 16 bits.
 // onProgress(0..1); shouldCancel() permite abortar. Cede el hilo entre bloques.
-export async function renderToWav(stems, { gains, tempo, semitones, sampleRate, onProgress, shouldCancel, vocal = [], startFrame = 0, zones = null, gated = null }) {
+export async function renderToWav(stems, { gains, tempo, semitones, sampleRate, onProgress, shouldCancel, vocal = [], startFrame = 0, zones = null, gated = null, click = null }) {
   const engine = new MixEngine(stems, vocal);
   gains.forEach((g, i) => { engine.setGain(i, g); engine.source.current[i] = g; });
   engine.setTempo(tempo);
   engine.setSemitones(semitones);
   if (zones && zones.length) engine.setZones(zones, gated);
-  const from = Math.max(0, Math.min(engine.length, Math.floor(startFrame)));
-  if (from > 0) engine.seek(from);
+  if (click) engine.setClick(click);
+  const lead = click && click.count > 0 ? Math.ceil(click.count * click.period) : 0; // la cuenta atrás va antes del inicio
+  const from = Math.max(-engine.source.pad, Math.min(engine.length, Math.floor(startFrame) - lead));
+  if (from !== 0) engine.seek(from);
   const expected = Math.ceil((engine.length - from) / tempo);
   const block = 16384;
   const left = new Float32Array(block);
@@ -191,3 +257,4 @@ export async function renderToWav(stems, { gains, tempo, semitones, sampleRate, 
 }
 
 export * from './estudio.mjs';
+export * from './beats.mjs';

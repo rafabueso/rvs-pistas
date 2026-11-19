@@ -25,6 +25,7 @@ class StretchProcessor extends AudioWorkletProcessor {
     else if (m.type === 'semitones') en.setSemitones(m.value);
     else if (m.type === 'gain') en.setGain(m.index, m.value);
     else if (m.type === 'zones') en.setZones(m.zones, m.gated);
+    else if (m.type === 'click') { en.setClick(m.cfg); this.port.postMessage({ type: 'position', frame: en.position }); }
   }
 
   process(_inputs, outputs) {

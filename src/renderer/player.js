@@ -65,6 +65,7 @@ export class Player {
   setTempo(value) { this.node.port.postMessage({ type: 'tempo', value }); }
   setSemitones(value) { this.node.port.postMessage({ type: 'semitones', value }); }
   setGain(index, value) { this.node.port.postMessage({ type: 'gain', index, value }); }
+  setClick(cfg) { this.node.port.postMessage({ type: 'click', cfg }); }
   setZones(zones, gated) { this.node.port.postMessage({ type: 'zones', zones, gated }); }
 
   dispose() {

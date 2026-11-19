@@ -1,5 +1,5 @@
 import { Player, decodeStems } from './player.js';
-import { renderToWav, detectStart, voicePhrases, makeSorpresa, normalizeZones, addZone, snapTime, zonesToFrames, SORPRESA_NIVELES } from './vendor/dsp.js';
+import { renderToWav, detectStart, voicePhrases, makeSorpresa, makeAyuda, estimateBeats, normalizeZones, addZone, snapTime, zonesToFrames, SORPRESA_NIVELES } from './vendor/dsp.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -31,8 +31,15 @@ const state = {
   gains: [1, 1, 1], muted: [false, false, false], solo: [false, false, false],
   tempo: 1, semitones: 0, pos: 0, found: null, jobId: null, busy: false, exporting: false,
   view: { start: 0, span: 0 }, peakMax: [],
-  estudio: { trim: false, start: 0, mode: 'normal', nivel: 'normales', seed: 1, zones: [], coros: true, phrases: [], auto: 0 },
+  estudio: freshEstudio(),
 };
+
+function freshEstudio() {
+  return {
+    trim: false, start: 0, auto: 0, mode: 'normal', nivel: 'normales', seed: 1, zones: [], zonesBy: {}, coros: true, phrases: [],
+    vozSeg: 4, gap: 1.5, bpm: 0, bpm0: 0, g0: 0, metro: 0, metroVol: 0.6, count: 0,
+  };
+}
 
 // ---------- utilidades ----------
 const fmtTime = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
@@ -267,9 +274,12 @@ function setPosition(seconds) {
   if (state.player && state.player.playing && v.span && v.span < state.seconds - 0.01 && (seconds > v.start + v.span * 0.95 || seconds < v.start)) {
     setView(seconds - v.span * 0.1, v.span); // la vista sigue a la reproducción
   } else placeHeads();
-  $('time').textContent = `${fmtTime(seconds)} / ${fmtTime(state.seconds)}`;
+  $('time').textContent = seconds < 0 ? 'Claqueta…' : `${fmtTime(seconds)} / ${fmtTime(state.seconds)}`;
 }
-function seekTo(seconds) { state.player.seek(Math.max(0, Math.min(state.seconds, seconds))); setPosition(seconds); }
+function seekTo(seconds, allowNeg = false) {
+  const t = Math.max(allowNeg ? -(countSec() + 0.1) : 0, Math.min(state.seconds, seconds));
+  state.player.seek(t); setPosition(t);
+}
 
 function setPlayIcon(playing) { $('play').textContent = playing ? '⏸' : '▶'; $('play').setAttribute('aria-label', playing ? 'Pausar' : 'Reproducir'); }
 
@@ -278,7 +288,7 @@ async function openProject(p) {
   if (state.player) { state.player.dispose(); state.player = null; }
   state.project = p; state.gains = [1, 1, 1]; state.muted = [false, false, false]; state.solo = [false, false, false];
   state.tempo = 1; state.semitones = 0;
-  state.estudio = { trim: false, start: 0, mode: 'normal', nivel: 'normales', seed: 1, zones: [], coros: true, phrases: [], auto: 0 };
+  state.estudio = freshEstudio();
   syncEstudioUI();
   $('song-title').textContent = p.title; $('song-artist').textContent = p.artist || '';
   $('chip-key').textContent = keyName(p.key); $('chip-bpm').textContent = `${Math.round(p.bpm)} BPM`;
@@ -287,7 +297,7 @@ async function openProject(p) {
   show('player');
   $('time').textContent = 'Cargando pistas…';
   try {
-    const player = new Player((s) => setPosition(s), () => { setPlayIcon(false); seekTo(0); });
+    const player = new Player((s) => setPosition(s), () => { setPlayIcon(false); goStart(); });
     state.player = player;
     const { peaks, seconds } = await player.load(p.id);
     state.peaks = peaks; state.seconds = seconds;
@@ -298,6 +308,8 @@ async function openProject(p) {
       const stems = await decodeForAnalysis();
       state.estudio.start = state.estudio.auto = detectStart(stems, 44100);
       state.estudio.phrases = voicePhrases(stems[0], 44100);
+      const bt = estimateBeats([stems[2], stems[0]], 44100, state.project.bpm);
+      state.estudio.bpm = state.estudio.bpm0 = bt.bpm || state.project.bpm; state.estudio.g0 = bt.phase;
       syncEstudioUI();
     } catch { /* sin análisis: la marca se pone a mano y Sorpresa reparte por tiempo */ }
     buildEdit();
@@ -320,7 +332,7 @@ $('play').addEventListener('click', async () => {
   const pl = state.player; if (!pl || !pl.node) return;
   if (pl.playing) { pl.pause(); setPlayIcon(false); } else { await pl.play(); setPlayIcon(true); }
 });
-$('restart').addEventListener('click', () => state.player && seekTo(state.estudio.trim ? state.estudio.start : 0));
+$('restart').addEventListener('click', () => state.player && goStart());
 $('speed').addEventListener('input', () => { state.tempo = Number($('speed').value) / 100; state.player.setTempo(state.tempo); refreshControls(); });
 $('speed-reset').addEventListener('click', () => { $('speed').value = '100'; state.tempo = 1; state.player.setTempo(1); refreshControls(); });
 const setPitch = (v) => { state.semitones = Math.max(-6, Math.min(6, v)); state.player.setSemitones(state.semitones); refreshControls(); };
@@ -350,7 +362,7 @@ async function decodeForAnalysis() {
 const gatedStems = () => [true, state.estudio.coros, false];
 function pushZones() {
   const e = state.estudio;
-  const zones = e.mode === 'sorpresa' ? e.zones : [];
+  const zones = e.mode !== 'normal' ? e.zones : [];
   if (state.player && state.player.node) state.player.setZones(zonesToFrames(zones, state.player.sampleRate), gatedStems());
 }
 
@@ -363,7 +375,13 @@ function syncEstudioUI() {
   $('sorpresa-nivel').value = e.nivel;
   document.querySelectorAll('[data-vozmode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.vozmode === e.mode)));
   $('sorpresa-opts').hidden = e.mode !== 'sorpresa';
-  $('zones-help').hidden = e.mode !== 'sorpresa';
+  $('ayuda-opts').hidden = e.mode !== 'ayuda';
+  $('zones-help').hidden = e.mode === 'normal';
+  $('ayuda-seg').value = String(e.vozSeg); $('ayuda-gap').value = String(e.gap);
+  $('metro-mode').value = String(e.metro); $('metro-vol').value = String(Math.round(e.metroVol * 100)); $('count-mode').value = String(e.count);
+  const beats = e.metro > 0 || e.count > 0;
+  $('beat-opts').hidden = !beats; $('beat-help').hidden = !beats;
+  $('bpm-out').textContent = String(Math.round(e.bpm * 10) / 10);
 }
 
 // --- franja de edición: pestaña naranja (inicio) y huecos amarillos (silencios de voz) ---
@@ -399,7 +417,7 @@ function buildEdit() {
   lane.replaceChildren();
   TRACKS.forEach((_, i) => $(`wave-${i}`).querySelectorAll('.ov').forEach((n) => n.remove()));
   edit = { bars: [], shades: [[], [], []], band: null, handle: null, trimmed: [], lines: [] };
-  lane.classList.toggle('is-empty', !(e.trim || e.mode === 'sorpresa'));
+  lane.classList.toggle('is-empty', !(e.trim || e.mode !== 'normal'));
   if (e.trim) {
     edit.band = document.createElement('div'); edit.band.className = 'sband'; edit.band.textContent = 'se quita';
     edit.handle = document.createElement('div'); edit.handle.className = 'shandle'; edit.handle.title = 'Arrastra para elegir dónde empieza la pista';
@@ -410,7 +428,7 @@ function buildEdit() {
       $(`wave-${i}`).append(t, m); edit.trimmed.push(t); edit.lines.push(m);
     });
   }
-  if (e.mode === 'sorpresa') {
+  if (e.mode !== 'normal') {
     e.zones.forEach((_, idx) => {
       const bar = document.createElement('div'); bar.className = 'zbar'; bar.dataset.i = String(idx);
       const l = document.createElement('div'); l.className = 'zh l'; const r = document.createElement('div'); r.className = 'zh r';
@@ -442,6 +460,14 @@ function layoutEdit() {
     edit.band.style.width = pct > 100 ? '0%' : `${Math.max(0, Math.min(100, pct))}%`;
     edit.trimmed.forEach((t, i) => { t.style.width = `${Math.max(0, Math.min(100, pct))}%`; edit.lines[i].style.left = `${pct}%`; edit.lines[i].style.display = pct < 0 || pct > 100 ? 'none' : ''; });
   }
+  const lane = $('strip-lane');
+  if ((e.metro || e.count) && e.bpm > 30 && lane) {
+    const w = lane.clientWidth || 600, px = (beatSec() / state.view.span) * w;
+    if (px >= 6) {
+      lane.style.backgroundImage = 'linear-gradient(to right, rgba(8,42,73,0.28) 0, rgba(8,42,73,0.28) 1px, transparent 1px)';
+      lane.style.backgroundSize = `${px}px 100%`; lane.style.backgroundPosition = `${((e.g0 - state.view.start) / state.view.span) * w}px 0`;
+    } else lane.style.backgroundImage = 'none';
+  } else if (lane) lane.style.backgroundImage = '';
   e.zones.forEach(([a, b], idx) => {
     const l = tToPct(a), w = ((b - a) / state.view.span) * 100;
     const bar = edit.bars[idx];
@@ -464,10 +490,11 @@ function startDown(ev) {
   if (ev.currentTarget.classList.contains('is-off')) { setView(e.start - state.view.span * 0.1, state.view.span); return; } // ir al inicio, sin moverlo
   drag(ev, (m) => {
     let t = xToT(m.clientX, lane);
-    t = snapTime(t, phrasePoints().map((p) => Math.max(0, p - 0.1)), snapTol());
-    e.start = Math.round(Math.max(0, Math.min(state.seconds - 1, t)) * 10) / 10;
+    if (e.count && e.bpm > 30) t = nearestBeat(t); // con claqueta, el inicio cae siempre en un pulso
+    else t = snapTime(t, phrasePoints().map((p) => Math.max(0, p - 0.1)), snapTol());
+    e.start = Math.round(Math.max(0, Math.min(state.seconds - 1, t)) * (e.count ? 1000 : 10)) / (e.count ? 1000 : 10);
     $('start-out').textContent = fmtTime(e.start); layoutEdit();
-  }, () => seekTo(e.start));
+  }, () => { pushClick(); goStart(); });
 }
 
 function zoneDown(ev, idx, mode) {
@@ -497,7 +524,7 @@ function zoneDown(ev, idx, mode) {
 function laneDown(ev) {
   if (ev.target !== ev.currentTarget && !(ev.target.classList && ev.target.classList.contains('sband'))) return;
   const e = state.estudio; const lane = ev.currentTarget; const x0 = ev.clientX; const t0 = xToT(x0, lane);
-  const can = e.mode === 'sorpresa' && !e.zones.some(([a, b]) => t0 >= a && t0 < b);
+  const can = e.mode !== 'normal' && !e.zones.some(([a, b]) => t0 >= a && t0 < b);
   let ghost = null; let moved = false;
   const free = () => { const prev = e.zones.filter(([, b]) => b <= t0).map(([, b]) => b); const next = e.zones.filter(([a]) => a > t0).map(([a]) => a); return [prev.length ? Math.max(...prev) + 0.05 : 0, next.length ? Math.min(...next) - 0.05 : state.seconds]; };
   const [lo, hi] = free();
@@ -524,25 +551,83 @@ function newSorpresa() {
 }
 
 $('trim-on').addEventListener('change', () => {
-  const e = state.estudio; e.trim = $('trim-on').checked; syncEstudioUI(); buildEdit();
-  if (e.trim) seekTo(e.start);
+  const e = state.estudio; e.trim = $('trim-on').checked; resnapStart(); syncEstudioUI(); buildEdit(); pushClick();
+  if (e.trim) goStart();
 });
-$('start-listen').addEventListener('click', async () => {
-  const e = state.estudio; seekTo(e.start);
+async function playFromStart() {
+  goStart();
   if (state.player && !state.player.playing) { await state.player.play(); setPlayIcon(true); }
-});
+}
+$('start-listen').addEventListener('click', playFromStart);
 document.querySelectorAll('[data-vozmode]').forEach((b) => b.addEventListener('click', () => {
-  const e = state.estudio; e.mode = b.dataset.vozmode; syncEstudioUI();
-  if (e.mode === 'sorpresa' && !e.zones.length) newSorpresa(); else { pushZones(); buildEdit(); }
+  const e = state.estudio; const next = b.dataset.vozmode; if (next === e.mode) return;
+  if (e.mode !== 'normal') e.zonesBy[e.mode] = e.zones; // cada modo recuerda sus huecos
+  e.mode = next; e.zones = e.zonesBy[next] || []; syncEstudioUI();
+  if (next === 'sorpresa' && !e.zones.length) newSorpresa();
+  else if (next === 'ayuda' && !e.zones.length) newAyuda();
+  else { pushZones(); buildEdit(); }
 }));
+function newAyuda() {
+  const e = state.estudio;
+  e.zones = makeAyuda({ phrases: e.phrases, endSec: state.seconds, vozSeg: e.vozSeg, gap: e.gap });
+  pushZones(); buildEdit();
+}
+$('ayuda-seg').addEventListener('change', () => { state.estudio.vozSeg = Number($('ayuda-seg').value) || 4; newAyuda(); });
+$('ayuda-gap').addEventListener('change', () => { state.estudio.gap = Number($('ayuda-gap').value) || 1.5; newAyuda(); });
 $('sorpresa-nivel').addEventListener('change', () => { state.estudio.nivel = SORPRESA_NIVELES.includes($('sorpresa-nivel').value) ? $('sorpresa-nivel').value : 'normales'; newSorpresa(); });
 $('sorpresa-otra').addEventListener('click', newSorpresa);
-$('zone-add').addEventListener('click', () => {
+const addZoneHere = () => {
   const e = state.estudio; const v = state.view;
   const c = state.pos >= v.start && state.pos <= v.start + v.span ? state.pos : v.start + v.span / 2;
   e.zones = addZone(e.zones, c, { len: Math.min(5, v.span / 3), max: state.seconds }); pushZones(); buildEdit();
-});
+};
+$('zone-add').addEventListener('click', addZoneHere); $('zone-add-ayuda').addEventListener('click', addZoneHere);
 $('coros-follow').addEventListener('change', () => { state.estudio.coros = $('coros-follow').checked; pushZones(); buildEdit(); });
+
+
+// --- metrónomo y claqueta ---
+function clickConfig(sr = state.player ? state.player.sampleRate : 44100) {
+  const e = state.estudio;
+  if (!(e.metro || e.count) || !(e.bpm > 30)) return null;
+  return { period: (60 / e.bpm) * sr, g0: e.g0 * sr, start: (e.trim ? e.start : 0) * sr, every: e.metro, vol: e.metroVol, count: e.count, countVol: 0.8 };
+}
+const beatSec = () => 60 / (state.estudio.bpm || 120);
+const countSec = () => (state.estudio.count ? state.estudio.count * beatSec() : 0);
+const nearestBeat = (t) => { const e = state.estudio; return e.g0 + Math.round((t - e.g0) / beatSec()) * beatSec(); };
+function pushClick() {
+  if (state.player && state.player.node) state.player.setClick(clickConfig());
+  layoutEdit();
+}
+// Con claqueta, el inicio cae en un pulso para que la cuenta atrás entre justo en la música
+function resnapStart() {
+  const e = state.estudio;
+  if (e.count && e.trim && e.bpm > 30) { e.start = Math.max(0, Math.round(nearestBeat(e.start) * 1000) / 1000); if (e.start < 0) e.start += beatSec(); }
+  $('start-out').textContent = fmtTime(e.start);
+}
+function goStart() { const e = state.estudio; seekTo((e.trim ? e.start : 0) - countSec(), true); }
+function beatsChanged() { resnapStart(); syncEstudioUI(); pushClick(); }
+const setBpm = (v) => { const e = state.estudio; e.bpm = Math.max(40, Math.min(240, Math.round(v * 10) / 10)); beatsChanged(); };
+const wrapG0 = (g) => ((g % beatSec()) + beatSec()) % beatSec();
+
+$('metro-mode').addEventListener('change', () => { state.estudio.metro = Number($('metro-mode').value) || 0; beatsChanged(); });
+$('metro-vol').addEventListener('input', () => { state.estudio.metroVol = Number($('metro-vol').value) / 100; pushClick(); });
+$('count-mode').addEventListener('change', () => { state.estudio.count = Number($('count-mode').value) || 0; beatsChanged(); });
+$('bpm-up').addEventListener('click', () => setBpm(state.estudio.bpm + 0.5));
+$('bpm-down').addEventListener('click', () => setBpm(state.estudio.bpm - 0.5));
+$('bpm-half').addEventListener('click', () => setBpm(state.estudio.bpm / 2));
+$('bpm-double').addEventListener('click', () => setBpm(state.estudio.bpm * 2));
+$('beat-left').addEventListener('click', () => { const e = state.estudio; e.g0 = wrapG0(e.g0 - 0.01); beatsChanged(); });
+$('beat-right').addEventListener('click', () => { const e = state.estudio; e.g0 = wrapG0(e.g0 + 0.01); beatsChanged(); });
+$('beat-here').addEventListener('click', () => { const e = state.estudio; e.g0 = wrapG0(Math.max(0, state.pos)); beatsChanged(); });
+$('beat-auto').addEventListener('click', async () => {
+  const e = state.estudio; const b = $('beat-auto'); b.disabled = true;
+  try {
+    const stems = await decodeForAnalysis();
+    const bt = estimateBeats([stems[2], stems[0]], 44100, state.project.bpm);
+    e.bpm = bt.bpm || state.project.bpm; e.g0 = bt.phase; beatsChanged();
+  } catch (err) { notice(errText(err)); } finally { b.disabled = false; }
+});
+$('click-listen').addEventListener('click', playFromStart);
 
 // Rueda: Ctrl (o pellizco en el panel táctil) amplía; el gesto horizontal desplaza
 $('tracks').addEventListener('wheel', (ev) => {
@@ -567,14 +652,16 @@ async function exportMix(format) {
     const blob = await renderToWav(stems, {
       gains: [0, 1, 2].map(effectiveGain), tempo: state.tempo, semitones: state.semitones, sampleRate: 44100, vocal: [true, true, false],
       startFrame: state.estudio.trim ? Math.round(state.estudio.start * 44100) : 0,
-      zones: state.estudio.mode === 'sorpresa' ? zonesToFrames(state.estudio.zones, 44100) : null, gated: gatedStems(),
+      zones: state.estudio.mode !== 'normal' ? zonesToFrames(state.estudio.zones, 44100) : null, gated: gatedStems(), click: clickConfig(44100),
       onProgress: (p) => { status.textContent = `Creando la mezcla… ${Math.round(p * 100)} %`; },
     });
     status.textContent = 'Elige dónde guardarla…';
     const parts = [state.project.title];
     if (state.tempo !== 1) parts.push(`${Math.round(state.tempo * 100)}%`);
     if (state.semitones !== 0) parts.push(`${state.semitones > 0 ? '+' : ''}${state.semitones}st`);
-    if (state.estudio.mode === 'sorpresa') parts.push('sorpresa');
+    if (state.estudio.mode !== 'normal') parts.push(state.estudio.mode);
+    if (state.estudio.count) parts.push(`claqueta ${state.estudio.count}`);
+    if (state.estudio.metro) parts.push(state.estudio.metro === 2 ? 'metrónomo medio' : 'metrónomo');
     const path = await api.saveExport(await blob.arrayBuffer(), format, parts.join(' · '));
     status.textContent = path ? 'Guardada ✓' : '';
     if (path) notice('Mezcla guardada.', 'info');
