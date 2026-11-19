@@ -42,13 +42,10 @@ export function onsetEnvelope(stems, sampleRate = 44100) {
   return { env: sm, fps: FPS };
 }
 
-// bpmHint: tempo aproximado (el de la app). Devuelve { bpm, phase (segundos del primer pulso), confidence }.
-export function estimateBeats(stems, sampleRate, bpmHint, { range = 0.04, maxSeconds = 150 } = {}) {
-  const { env, fps } = onsetEnvelope(stems, sampleRate);
-  const n = Math.min(env.length - 1, Math.floor(maxSeconds * fps));
-  if (!(bpmHint > 30) || n < fps * 8) return { bpm: bpmHint || 0, phase: 0, confidence: 0 };
-  let best = { score: -1, bpm: bpmHint, ph: 0 }, total = 0, count = 0;
-  for (let bpm = bpmHint * (1 - range); bpm <= bpmHint * (1 + range) + 1e-9; bpm += 0.1) {
+// Afina un tempo candidato: busca el tempo (±range) y el desfase que mejor encajan con los golpes.
+function refine(env, fps, n, bpm0, range) {
+  let best = { score: -1, bpm: bpm0, ph: 0 }, total = 0, count = 0;
+  for (let bpm = bpm0 * (1 - range); bpm <= bpm0 * (1 + range) + 1e-9; bpm += 0.1) {
     const T = (fps * 60) / bpm;
     for (let ph = 0; ph < T; ph += 0.25) {
       let score = 0, beats = 0;
@@ -59,5 +56,41 @@ export function estimateBeats(stems, sampleRate, bpmHint, { range = 0.04, maxSec
     }
   }
   const mean = total / Math.max(1, count);
-  return { bpm: Math.round(best.bpm * 10) / 10, phase: Math.round((best.ph / fps) * 1000) / 1000, confidence: mean > 0 ? Math.round((best.score / mean) * 100) / 100 : 0 };
+  return {
+    bpm: Math.round(best.bpm * 10) / 10, phase: Math.round((best.ph / fps) * 1000) / 1000,
+    confidence: mean > 0 ? Math.round((best.score / mean) * 100) / 100 : 0,
+  };
+}
+
+// Tempo y primer pulso. No se fía del tempo que traiga la app (puede ir a un múltiplo
+// equivocado): lo busca de nuevo en toda la gama y devuelve los mejores candidatos,
+// el primero es el más probable. bpmHint solo añade el tempo de la app como última opción.
+// Devuelve { bpm, phase (s), confidence, candidates: [{ bpm, phase, confidence }] }.
+export function estimateBeats(stems, sampleRate, bpmHint, { maxSeconds = 150 } = {}) {
+  const { env, fps } = onsetEnvelope(stems, sampleRate);
+  const n = Math.min(env.length - 1, Math.floor(maxSeconds * fps));
+  if (n < fps * 8) return { bpm: bpmHint || 0, phase: 0, confidence: 0, candidates: [] };
+  const Lmin = Math.floor((fps * 60) / 210), Lmax = Math.ceil((fps * 60) / 55);
+  const ac = new Float32Array(2 * Lmax + 2);
+  for (let L = Math.max(2, Math.floor(Lmin / 2)); L <= 2 * Lmax; L++) {
+    let sum = 0;
+    for (let t = 0; t + L < n; t++) sum += env[t] * env[t + L];
+    ac[L] = sum / (n - L);
+  }
+  const prior = (bpm) => Math.exp(-0.5 * Math.pow(Math.log2(bpm / 115) / 0.9, 2));
+  const score = new Float32Array(Lmax + 1);
+  for (let L = Lmin; L <= Lmax; L++) score[L] = (ac[L] + 0.5 * ac[2 * L] + 0.25 * ac[Math.round(L / 2)]) * prior((fps * 60) / L);
+  const peaks = [];
+  for (let L = Lmin + 1; L < Lmax; L++) if (score[L] >= score[L - 1] && score[L] > score[L + 1]) peaks.push(L);
+  peaks.sort((x, y) => score[y] - score[x]);
+  const picked = [];
+  for (const L of peaks) {
+    const bpm = (fps * 60) / L;
+    if (picked.every((q) => Math.abs(q - bpm) / q > 0.06)) picked.push(bpm);
+    if (picked.length >= 3) break;
+  }
+  if (bpmHint > 30 && picked.every((q) => Math.abs(q - bpmHint) / q > 0.06)) picked.push(bpmHint);
+  const candidates = picked.map((bpm) => refine(env, fps, n, bpm, 0.04));
+  const top = candidates[0] || { bpm: bpmHint || 0, phase: 0, confidence: 0 };
+  return { ...top, candidates };
 }

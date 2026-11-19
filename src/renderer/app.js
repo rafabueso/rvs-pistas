@@ -37,7 +37,7 @@ const state = {
 function freshEstudio() {
   return {
     trim: false, start: 0, auto: 0, mode: 'normal', nivel: 'normales', seed: 1, zones: [], zonesBy: {}, coros: true, phrases: [],
-    vozSeg: 4, gap: 1.5, bpm: 0, bpm0: 0, g0: 0, metro: 0, metroVol: 0.6, count: 0,
+    vozSeg: 4, gap: 1.5, bpm: 0, bpm0: 0, g0: 0, cands: [], candIdx: 0, metro: 0, metroVol: 0.6, count: 0,
   };
 }
 
@@ -310,6 +310,8 @@ async function openProject(p) {
       state.estudio.phrases = voicePhrases(stems[0], 44100);
       const bt = estimateBeats([stems[2], stems[0]], 44100, state.project.bpm);
       state.estudio.bpm = state.estudio.bpm0 = bt.bpm || state.project.bpm; state.estudio.g0 = bt.phase;
+      state.estudio.cands = bt.candidates || []; state.estudio.candIdx = 0;
+      if (bt.bpm) { state.project.bpm = bt.bpm; $('chip-bpm').textContent = `${Math.round(bt.bpm)} BPM`; refreshControls(); } // el tempo de la app podía ir a un múltiplo equivocado
       syncEstudioUI();
     } catch { /* sin análisis: la marca se pone a mano y Sorpresa reparte por tiempo */ }
     buildEdit();
@@ -619,13 +621,10 @@ $('bpm-double').addEventListener('click', () => setBpm(state.estudio.bpm * 2));
 $('beat-left').addEventListener('click', () => { const e = state.estudio; e.g0 = wrapG0(e.g0 - 0.01); beatsChanged(); });
 $('beat-right').addEventListener('click', () => { const e = state.estudio; e.g0 = wrapG0(e.g0 + 0.01); beatsChanged(); });
 $('beat-here').addEventListener('click', () => { const e = state.estudio; e.g0 = wrapG0(Math.max(0, state.pos)); beatsChanged(); });
-$('beat-auto').addEventListener('click', async () => {
-  const e = state.estudio; const b = $('beat-auto'); b.disabled = true;
-  try {
-    const stems = await decodeForAnalysis();
-    const bt = estimateBeats([stems[2], stems[0]], 44100, state.project.bpm);
-    e.bpm = bt.bpm || state.project.bpm; e.g0 = bt.phase; beatsChanged();
-  } catch (err) { notice(errText(err)); } finally { b.disabled = false; }
+$('beat-auto').addEventListener('click', () => { // prueba el siguiente tempo candidato
+  const e = state.estudio; if (!e.cands.length) return;
+  e.candIdx = (e.candIdx + 1) % e.cands.length;
+  const c = e.cands[e.candIdx]; e.bpm = c.bpm; e.g0 = c.phase; beatsChanged();
 });
 $('click-listen').addEventListener('click', playFromStart);
 

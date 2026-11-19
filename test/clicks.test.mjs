@@ -88,6 +88,10 @@ test('estimación del pulso sobre una pista con golpes cada 0,5 s desplazados 0,
   }
   const r = estimateBeats([{ l, r: l }], SR, 118);
   assert.ok(Math.abs(r.bpm - 120) < 0.6, `bpm ${r.bpm}`);
+  // aunque la app traiga un tempo equivocado (p. ej. 160), lo encuentra igualmente
+  const wrong = estimateBeats([{ l, r: l }], SR, 160);
+  assert.ok(Math.abs(wrong.bpm - 120) < 0.8, `con tempo de partida erróneo: ${wrong.bpm}`);
+  assert.ok(wrong.candidates.length >= 2);
   const d = ((r.phase - 0.23) % 0.5 + 0.5) % 0.5;
   assert.ok(Math.min(d, 0.5 - d) < 0.025, `fase ${r.phase}`);
   assert.ok(r.confidence > 1.5);
@@ -100,4 +104,14 @@ test('Ayuda: la voz solo suena al entrar tras un silencio', () => {
   assert.deepEqual(z, [[0, 9.8], [14, 39.8], [44, 69.8], [74, 100]]);
   const z2 = makeAyuda({ phrases: ph, endSec: 100, vozSeg: 4, gap: 0.5 }); // cada frase es una entrada
   assert.ok(z2.length > z.length - 1 && z2.every(([a, b]) => b > a));
+});
+
+test('estimación del pulso con corcheas (golpes cada 0,25 s, acento cada 0,5 s): no se va al doble', () => {
+  const secs = 40, l = new Float32Array(secs * SR);
+  for (let k = 0; k * 0.25 < secs - 0.2; k++) {
+    const a = Math.round((0.1 + k * 0.25) * SR), strong = k % 2 === 0;
+    for (let i = 0; i < 0.06 * SR; i++) l[a + i] += Math.sin((2 * Math.PI * (strong ? 90 : 3000) * i) / SR) * Math.exp(-i / (0.02 * SR)) * (strong ? 0.8 : 0.25);
+  }
+  const r = estimateBeats([{ l, r: l }], SR, 130);
+  assert.ok(Math.abs(r.bpm - 120) < 1, `bpm ${r.bpm}`);
 });
