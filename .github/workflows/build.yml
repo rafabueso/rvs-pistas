@@ -137,6 +137,8 @@ jobs:
     needs: [compilar, compilar-descargador]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/download-artifact@v4
         with:
           path: instaladores
@@ -152,6 +154,23 @@ jobs:
             done
           done
           ls -lh salida
+      - name: Qué programa ha cambiado de verdad
+        # Cada programa solo avisa de versión nueva si su propio código ha cambiado.
+        env:
+          GH_TOKEN: ${{ secrets.DESCARGAS_TOKEN }}
+        run: |
+          TAG="v0.1.${{ github.run_number }}"
+          PISTAS="$TAG"; DESCARGAR="$TAG"
+          PREV=$(gh api repos/rafabueso/rvs-descargas/releases/latest -q .body 2>/dev/null || true)
+          P_OLD=$(echo "$PREV" | grep -o 'pistas=v[0-9.]*' | head -1 | cut -d= -f2 || true)
+          D_OLD=$(echo "$PREV" | grep -o 'descargar=v[0-9.]*' | head -1 | cut -d= -f2 || true)
+          SHA_OLD=$(echo "$PREV" | grep -o 'sha=[0-9a-f]*' | head -1 | cut -d= -f2 || true)
+          if [ -n "$SHA_OLD" ] && [ -n "$P_OLD" ] && [ -n "$D_OLD" ] && git cat-file -e "$SHA_OLD^{commit}" 2>/dev/null; then
+            git diff --quiet "$SHA_OLD" HEAD -- src engine scripts assets package.json package-lock.json && PISTAS="$P_OLD"
+            git diff --quiet "$SHA_OLD" HEAD -- descargador engine scripts/fetch_models.py && DESCARGAR="$D_OLD"
+          fi
+          echo "NOTES=Instaladores de Pistas y de Descargar audio para Windows y Mac. Cambios: pistas=$PISTAS descargar=$DESCARGAR sha=$GITHUB_SHA" >> "$GITHUB_ENV"
+          echo "pistas=$PISTAS descargar=$DESCARGAR"
       - name: Crear la versión
         env:
           GH_TOKEN: ${{ github.token }}
@@ -159,7 +178,7 @@ jobs:
           TAG="v0.1.${{ github.run_number }}"
           gh release create "$TAG" salida/* --repo "${GITHUB_REPOSITORY}" --target "${GITHUB_SHA}" --latest \
             --title "Versión $TAG" \
-            --notes "Instaladores de Pistas y de Descargar audio para Windows y Mac."
+            --notes "$NOTES"
       - name: Copiar a la página pública de descargas
         env:
           GH_TOKEN: ${{ secrets.DESCARGAS_TOKEN }}
@@ -171,5 +190,5 @@ jobs:
           TAG="v0.1.${{ github.run_number }}"
           gh release create "$TAG" salida/* --repo rafabueso/rvs-descargas --latest \
             --title "Versión $TAG" \
-            --notes "Instaladores de Pistas y de Descargar audio para Windows y Mac."
+            --notes "$NOTES"
 # Publicación pública activada (secreto DESCARGAS_TOKEN)
