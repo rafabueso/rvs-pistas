@@ -90,23 +90,21 @@
         </div>
       </div>
 
-      <div class="card tracks" id="tracks"></div>
-
-      <div class="card transport">
-        <div class="transport-main">
-          <button id="restart" class="btn-icon" type="button" aria-label="Volver al principio">⏮</button>
-          <button id="play" class="btn-play" type="button" aria-label="Reproducir">▶</button>
-          <span id="time" class="time">0:00 / 0:00</span>
-        </div>
-
-        <div class="control control-export">
-          <span class="label">Guardar la mezcla</span>
-          <div class="export-row">
-            <button id="export-wav" class="btn btn-primary" type="button">WAV</button>
-            <button id="export-mp3" class="btn btn-primary" type="button">MP3</button>
+      <div class="card player-card">
+        <div class="transport-bar">
+          <div class="transport-main">
+            <button id="restart" class="btn-icon" type="button" aria-label="Volver al principio">⏮</button>
+            <button id="play" class="btn-play" type="button" aria-label="Reproducir">▶</button>
+            <span id="time" class="time">0:00 / 0:00</span>
           </div>
-          <div id="export-status" class="control-foot muted" aria-live="polite"></div>
+          <div class="export-row">
+            <span class="label">Guardar audio</span>
+            <button id="export-wav" class="btn btn-primary btn-sm" type="button">WAV</button>
+            <button id="export-mp3" class="btn btn-primary btn-sm" type="button">MP3</button>
+            <span id="export-status" class="muted" aria-live="polite"></span>
+          </div>
         </div>
+        <div class="tracks" id="tracks"></div>
       </div>
 
       <div class="card estudio" id="estudio">
@@ -119,68 +117,34 @@
 
         <div class="tabpanel" role="tabpanel" id="tab-sonido" aria-labelledby="tabbtn-sonido">
           <div class="panel-grid">
-        <div class="control">
-          <div id="speed-name" class="tempo-name" aria-live="polite"></div>
-          <label for="speed" class="label">Velocidad <b id="speed-out">100 %</b></label>
-          <input id="speed" type="range" min="50" max="150" step="5" value="100">
-          <div class="control-foot"><span id="speed-bpm" class="muted"></span><button id="speed-reset" class="link" type="button">Restablecer</button></div>
-        </div>
-
-        <div class="control">
-          <span class="label" id="pitch-label">Tono <b id="pitch-out">original</b></span>
-          <div class="stepper" role="group" aria-labelledby="pitch-label">
-            <button id="pitch-down" class="btn-icon" type="button" aria-label="Bajar un semitono">−</button>
-            <span id="pitch-val" class="stepper-val">0</span>
-            <button id="pitch-up" class="btn-icon" type="button" aria-label="Subir un semitono">+</button>
-          </div>
-          <div class="control-foot"><span id="pitch-key" class="muted"></span></div>
-        </div>
-
-        <div class="control">
-          <span class="label">Mezcla rápida</span>
-          <div class="presets">
-            <button class="btn btn-soft" data-preset="all" type="button">Todo</button>
-            <button class="btn btn-soft" data-preset="karaoke" type="button">Karaoke</button>
-            <button class="btn btn-soft" data-preset="backing" type="button">Karaoke con coros</button>
-            <button class="btn btn-soft" data-preset="voice" type="button">Solo voz</button>
-          </div>
-        </div>
-
+            <div class="mini-card mini-sky">
+              <b>Mezcla</b>
+              <div id="mix-rows" class="mix-rows"></div>
+              <div class="presets">
+                <button class="btn btn-soft btn-sm" data-preset="all" type="button">Todo</button>
+                <button class="btn btn-soft btn-sm" data-preset="karaoke" type="button">Karaoke</button>
+                <button class="btn btn-soft btn-sm" data-preset="backing" type="button">Karaoke con coros</button>
+                <button class="btn btn-soft btn-sm" data-preset="voice" type="button">Solo voz</button>
+              </div>
+            </div>
+            <div class="mini-card mini-yellow">
+              <div id="speed-name" class="tempo-name" aria-live="polite"></div>
+              <label for="speed" class="label">Velocidad <b id="speed-out">100 %</b></label>
+              <input id="speed" type="range" min="50" max="150" step="5" value="100">
+              <div class="control-foot"><span id="speed-bpm" class="muted"></span><button id="speed-reset" class="link" type="button">Restablecer</button></div>
+              <span class="label" id="pitch-label">Tono <b id="pitch-out">original</b></span>
+              <div class="stepper" role="group" aria-labelledby="pitch-label">
+                <button id="pitch-down" class="btn-icon" type="button" aria-label="Bajar un semitono">−</button>
+                <span id="pitch-val" class="stepper-val">0</span>
+                <button id="pitch-up" class="btn-icon" type="button" aria-label="Subir un semitono">+</button>
+                <span id="pitch-key" class="muted"></span>
+              </div>
+            </div>
           </div>
         </div>
 
         <div class="tabpanel" role="tabpanel" id="tab-voz" aria-labelledby="tabbtn-voz" hidden>
-          <div class="panel-grid">
-            <div class="mini-card mini-peach">
-              <b>Ayuda de entradas</b>
-              <p class="muted">La voz suena al empezar cada frase y luego se esconde hasta la siguiente.</p>
-              <div class="estudio-row">
-                <label class="label" for="ayuda-seg">La voz dura</label>
-                <select id="ayuda-seg">
-                  <option value="2">2 segundos</option>
-                  <option value="3">3 segundos</option>
-                  <option value="4" selected>4 segundos</option>
-                  <option value="6">6 segundos</option>
-                  <option value="8">8 segundos</option>
-                </select>
-                <button id="ayuda-apply" class="btn btn-primary" type="button">Aplicar</button>
-              </div>
-            </div>
-            <div class="mini-card mini-yellow">
-              <b>Voz sorpresa</b>
-              <p class="muted">La voz desaparece sola en momentos clave, sin avisar.</p>
-              <div class="estudio-row">
-                <label class="label" for="sorpresa-nivel">Silencio</label>
-                <select id="sorpresa-nivel">
-                  <option value="pocos">Poco</option>
-                  <option value="normales" selected>Medio</option>
-                  <option value="muchos">Mucho</option>
-                </select>
-                <button id="sorpresa-apply" class="btn btn-primary" type="button">Aplicar</button>
-              </div>
-            </div>
-          </div>
-          <div class="estudio-block">
+          <div class="estudio-block no-rule">
             <span class="label">Ajustar la voz de los tramos <span class="muted">· pulsa un tramo de la franja para elegirlo (con Mayús, varios)</span></span>
             <div class="estudio-row">
               <span class="label">Aplicar a</span>
@@ -214,6 +178,36 @@
               <label class="check"><input id="coros-follow" type="checkbox" checked> <span>Los coros siguen a la voz</span></label>
             </div>
             <p id="zones-help" class="muted">Arrastra los tramos para moverlos, tira de sus bordes para alargarlos o acortarlos, pulsa × para quitarlos o arrastra sobre un espacio vacío de la franja para crear uno. Las ondas se amplían con − y + o con Ctrl y la rueda.</p>
+          </div>
+          <div class="panel-grid">
+            <div class="mini-card mini-peach">
+              <b>Ayuda de entradas</b>
+              <p class="muted">La voz suena al empezar cada frase y luego se esconde hasta la siguiente.</p>
+              <div class="estudio-row">
+                <label class="label" for="ayuda-seg">La voz dura</label>
+                <select id="ayuda-seg">
+                  <option value="2">2 segundos</option>
+                  <option value="3">3 segundos</option>
+                  <option value="4" selected>4 segundos</option>
+                  <option value="6">6 segundos</option>
+                  <option value="8">8 segundos</option>
+                </select>
+                <button id="ayuda-apply" class="btn btn-primary" type="button">Aplicar</button>
+              </div>
+            </div>
+            <div class="mini-card mini-yellow">
+              <b>Voz sorpresa</b>
+              <p class="muted">La voz desaparece sola en momentos clave, sin avisar.</p>
+              <div class="estudio-row">
+                <label class="label" for="sorpresa-nivel">Silencio</label>
+                <select id="sorpresa-nivel">
+                  <option value="pocos">Poco</option>
+                  <option value="normales" selected>Medio</option>
+                  <option value="muchos">Mucho</option>
+                </select>
+                <button id="sorpresa-apply" class="btn btn-primary" type="button">Aplicar</button>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -183,22 +183,27 @@ $('cancel').addEventListener('click', () => { if (state.jobId) api.cancel(state.
 // ---------- reproductor ----------
 function buildTracks() {
   const root = $('tracks'); root.replaceChildren();
+  const mix = $('mix-rows'); mix.replaceChildren();
   root.append(buildStrip());
   TRACKS.forEach((t, i) => {
     const row = document.createElement('div'); row.className = `track ${t.cls}`;
     const ctl = document.createElement('div'); ctl.className = 'track-ctl';
     const name = document.createElement('span'); name.className = 'track-name'; name.textContent = t.label;
+    ctl.append(name);
+    const wave = document.createElement('div'); wave.className = 'wave'; wave.id = `wave-${i}`;
+    const canvas = document.createElement('canvas'); const head = document.createElement('div'); head.className = 'playhead'; head.id = `head-${i}`;
+    wave.append(canvas, head);
+    row.append(ctl, wave); root.append(row);
+    // la mezcla (silenciar, solo, volumen) vive en la pestaña Sonido
+    const mrow = document.createElement('div'); mrow.className = `mix-row ${t.cls}`;
+    const mname = document.createElement('span'); mname.className = 'track-name'; mname.textContent = t.label;
     const btns = document.createElement('div'); btns.className = 'track-btns';
     const m = document.createElement('button'); m.type = 'button'; m.className = 'pill m'; m.textContent = 'Silenciar'; m.setAttribute('aria-pressed', 'false'); m.id = `mute-${i}`;
     const s = document.createElement('button'); s.type = 'button'; s.className = 'pill s'; s.textContent = 'Solo'; s.setAttribute('aria-pressed', 'false'); s.id = `solo-${i}`;
     btns.append(m, s);
     const vol = document.createElement('input'); vol.type = 'range'; vol.min = '0'; vol.max = '100'; vol.value = '100'; vol.id = `vol-${i}`;
     vol.setAttribute('aria-label', `Volumen de ${t.label.slice(3)}`);
-    ctl.append(name, btns, vol);
-    const wave = document.createElement('div'); wave.className = 'wave'; wave.id = `wave-${i}`;
-    const canvas = document.createElement('canvas'); const head = document.createElement('div'); head.className = 'playhead'; head.id = `head-${i}`;
-    wave.append(canvas, head);
-    row.append(ctl, wave); root.append(row);
+    mrow.append(mname, btns, vol); mix.append(mrow);
     m.addEventListener('click', () => { state.muted[i] = !state.muted[i]; applyGains(); });
     s.addEventListener('click', () => { state.solo[i] = !state.solo[i]; applyGains(); });
     vol.addEventListener('input', () => { state.gains[i] = Number(vol.value) / 100; applyGains(); });
