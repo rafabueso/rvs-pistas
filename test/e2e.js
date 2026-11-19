@@ -145,6 +145,16 @@ app.whenReady().then(async () => {
     await ev(win, `document.getElementById('zoom-in').click(); document.getElementById('zoom-in').click();`);
     check('el zoom amplía las ondas y aparece el desplazador', (await ev(win, `document.getElementById('zoom-out-txt').textContent`)).startsWith('×') && (await ev(win, `!document.getElementById('strip-pan').hidden`)));
     await shot(win, '04c-zoom.png');
+    // el zoom se centra donde está el cursor, y la pestaña naranja sigue diciendo la verdad
+    await ev(win, `document.getElementById('zoom-all').click()`);
+    await ev(win, `(() => { const w = document.getElementById('wave-2'); const r = w.getBoundingClientRect(); w.dispatchEvent(new MouseEvent('click', { clientX: r.left + r.width * 0.8, clientY: r.top + 10, bubbles: true })); })()`);
+    const headBefore = await ev(win, `parseFloat(document.getElementById('head-2').style.left)`);
+    await ev(win, `document.getElementById('zoom-in').click(); document.getElementById('zoom-in').click();`);
+    const headAfter = await ev(win, `parseFloat(document.getElementById('head-2').style.left)`);
+    check('el zoom se centra en el cursor (no salta al medio)', Math.abs(headAfter - headBefore) < 25 && headAfter > 0 && headAfter < 100, `${headBefore.toFixed(0)} % → ${headAfter.toFixed(0)} %`);
+    const startBeforeZoomOut = await ev(win, `document.getElementById('start-out').textContent`);
+    await ev(win, `document.getElementById('zoom-all').click()`);
+    check('"Todo" no cambia el inicio', (await ev(win, `document.getElementById('start-out').textContent`)) === startBeforeZoomOut);
     await ev(win, `document.getElementById('zoom-all').click()`);
     check('"Todo" vuelve a ver la canción entera', (await ev(win, `document.getElementById('zoom-out-txt').textContent`)) === '' && (await ev(win, `document.getElementById('strip-pan').hidden`)));
     await ev(win, `document.getElementById('trim-on').click()`); // el recorte vuelve para exportar

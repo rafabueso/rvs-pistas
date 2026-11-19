@@ -194,6 +194,7 @@ function buildTracks() {
     s.addEventListener('click', () => { state.solo[i] = !state.solo[i]; applyGains(); });
     vol.addEventListener('input', () => { state.gains[i] = Number(vol.value) / 100; applyGains(); });
     wave.addEventListener('click', (e) => seekTo(xToT(e.clientX, wave)));
+    wave.addEventListener('dblclick', (e) => zoomBy(2, xToT(e.clientX, wave)));
   });
 }
 
@@ -248,7 +249,9 @@ function renderView() {
   const pan = $('strip-pan'); pan.hidden = zoom <= 1.05;
   pan.max = String(Math.round((state.seconds - state.view.span) * 100)); pan.value = String(Math.round(state.view.start * 100));
 }
-function zoomBy(f, center = state.view.start + state.view.span / 2) {
+// Los botones amplían alrededor del cursor de reproducción (el punto donde haces clic en una onda)
+const zoomCenter = () => (state.pos >= state.view.start && state.pos <= state.view.start + state.view.span ? state.pos : state.view.start + state.view.span / 2);
+function zoomBy(f, center = zoomCenter()) {
   const span = state.view.span / f;
   const rel = (center - state.view.start) / state.view.span;
   setView(center - rel * Math.max(Math.min(MIN_SPAN, state.seconds), Math.min(state.seconds, span)), span);
@@ -378,7 +381,10 @@ function buildStrip() {
   const lane = document.createElement('div'); lane.className = 'strip-lane is-empty'; lane.id = 'strip-lane';
   const pan = document.createElement('input'); pan.type = 'range'; pan.id = 'strip-pan'; pan.className = 'strip-pan'; pan.min = '0'; pan.max = '0'; pan.hidden = true; pan.setAttribute('aria-label', 'Moverse por la canción');
   right.append(lane, pan); row.append(ctl, right);
-  zo.addEventListener('click', () => zoomBy(1 / 1.6)); zi.addEventListener('click', () => zoomBy(1.6)); za.addEventListener('click', () => setView(0, state.seconds));
+  zo.addEventListener('click', () => zoomBy(1 / 1.6)); zi.addEventListener('click', () => zoomBy(1.6));
+  row.addEventListener('dblclick', (ev) => { // doble clic en una onda o en la franja: amplía justo ahí
+    const t = xToT(ev.clientX, $('strip-lane')); if (ev.target.closest('.strip-lane, .wave') && !ev.target.closest('.zbar, .shandle')) zoomBy(2, t);
+  }); za.addEventListener('click', () => setView(0, state.seconds));
   pan.addEventListener('input', () => setView(Number(pan.value) / 100, state.view.span));
   lane.addEventListener('pointerdown', laneDown);
   return row;
@@ -428,8 +434,12 @@ function layoutEdit() {
   if (edit.band) {
     const pct = tToPct(e.start);
     edit.band.style.width = `${Math.max(0, Math.min(100, pct))}%`;
-    edit.handle.style.left = `clamp(0px, calc(${pct}% - 8px), calc(100% - 16px))`;
-    edit.handle.style.display = pct > 102 ? 'none' : '';
+    const off = pct < 0 || pct > 100; // el inicio real queda fuera de lo que se ve
+    edit.handle.classList.toggle('is-off', off);
+    edit.handle.textContent = off ? (pct < 0 ? '◀' : '▶') : '';
+    edit.handle.title = off ? 'El inicio está fuera de la vista. Púlsame para ir a él' : 'Arrastra para elegir dónde empieza la pista';
+    edit.handle.style.left = off ? (pct < 0 ? '0px' : 'calc(100% - 16px)') : `clamp(0px, calc(${pct}% - 8px), calc(100% - 16px))`;
+    edit.band.style.width = pct > 100 ? '0%' : `${Math.max(0, Math.min(100, pct))}%`;
     edit.trimmed.forEach((t, i) => { t.style.width = `${Math.max(0, Math.min(100, pct))}%`; edit.lines[i].style.left = `${pct}%`; edit.lines[i].style.display = pct < 0 || pct > 100 ? 'none' : ''; });
   }
   e.zones.forEach(([a, b], idx) => {
@@ -451,6 +461,7 @@ function drag(ev, onMove, onEnd) {
 function startDown(ev) {
   ev.preventDefault(); ev.stopPropagation();
   const e = state.estudio; const lane = $('strip-lane');
+  if (ev.currentTarget.classList.contains('is-off')) { setView(e.start - state.view.span * 0.1, state.view.span); return; } // ir al inicio, sin moverlo
   drag(ev, (m) => {
     let t = xToT(m.clientX, lane);
     t = snapTime(t, phrasePoints().map((p) => Math.max(0, p - 0.1)), snapTol());

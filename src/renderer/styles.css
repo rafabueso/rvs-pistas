@@ -155,6 +155,12 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px; }
 .zh.l { left: 0; } .zh.l::after { left: 3px; }
 .zh.r { right: 0; } .zh.r::after { right: 3px; }
 .zx { position: relative; z-index: 1; background: none; border: 0; font-weight: 700; font-size: 16px; line-height: 1; color: var(--on-yellow); cursor: pointer; padding: 2px 4px; }
-.zbar.is-small .zx { display: none; }
 .strip-pan { width: 100%; accent-color: var(--accent-blue); }
 .strip-pan[hidden] { display: none; }
+.shandle.is-off { display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700; opacity: 0.85; cursor: pointer; }
+.shandle.is-off::after { display: none; }
+/* Huecos pequeños: la × sale como una chapa encima, y los bordes se estrechan para poder agarrar el cuerpo */
+.zbar.is-small .zx { display: grid; place-items: center; position: absolute; top: -5px; right: -7px; width: 18px; height: 18px; padding: 0; border-radius: 50%; background: var(--surface); border: 1px solid var(--ink-muted); font-size: 13px; z-index: 3; }
+.zbar.is-small .zh { width: 5px; }
+.zbar.is-small .zh::after { display: none; }
+.strip-lane .sband { border-radius: var(--radius-s) 0 0 var(--radius-s); }
