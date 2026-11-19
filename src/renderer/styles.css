@@ -241,3 +241,11 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px; }
 .estudio .tabpanel[hidden] { display: none; }
 #zones-help { display: none; }
 .estudio .tabpanel { padding: 12px 16px; }
+/* Franja limpia: la × solo al pasar el ratón o al elegir el tramo; la etiqueta solo si cabe */
+.zbar .zx, .zbar.is-small .zx { display: none; }
+.zbar:hover .zx, .zbar.is-sel .zx { display: grid; place-items: center; }
+.zbar.is-small:hover .zx, .zbar.is-small.is-sel .zx { display: grid; }
+.zbar.is-tight .zl { display: none; }
+.zbar.is-tight:not(.is-small):hover .zx, .zbar.is-tight:not(.is-small).is-sel .zx { position: absolute; top: -5px; right: -7px; width: 18px; height: 18px; padding: 0; border-radius: 50%; background: var(--surface); border: 1px solid var(--ink-muted); font-size: 13px; z-index: 3; }
+.zbar.is-sel { z-index: 4; }
+.zbar.is-tight:hover .zl { display: none; }

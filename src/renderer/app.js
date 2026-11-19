@@ -488,7 +488,7 @@ function layoutEdit() {
       const lv = e.zones[idx][2] === undefined ? 0 : e.zones[idx][2];
       bar.classList.toggle('is-quiet', lv === 0); bar.classList.toggle('is-sel', e.sel.includes(idx));
       bar.querySelector('.zl').textContent = lv === 0 ? 'Sin voz' : `${Math.round(lv * 100)} %`;
-      bar.style.left = `${l}%`; bar.style.width = `${w}%`; bar.style.display = l + w < 0 || l > 100 ? 'none' : ''; bar.classList.toggle('is-small', (w / 100) * ($('strip-lane').clientWidth || 600) < 34); }
+      bar.style.left = `${l}%`; bar.style.width = `${w}%`; bar.style.display = l + w < 0 || l > 100 ? 'none' : ''; { const px = (w / 100) * ($('strip-lane').clientWidth || 600); bar.classList.toggle('is-small', px < 34); bar.classList.toggle('is-tight', px < 80); } }
     edit.shades.forEach((arr) => { const z = arr[idx]; if (z) { z.style.left = `${l}%`; z.style.width = `${w}%`; } });
   });
 }
