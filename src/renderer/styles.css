@@ -267,3 +267,20 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px; }
 .sonido-sep { width: 1px; align-self: stretch; background: var(--line); }
 .sonido-row .btn-icon { width: 32px; height: 32px; }
 .sonido-row .stepper { gap: 8px; }
+
+/* Barra de pestañas separada de las ondas; el play queda debajo, siempre visible */
+.estudio { margin-top: 22px; }
+.transport-card { padding: 10px 16px; }
+.transport-card .transport-bar { border-top: 0; padding-top: 0; }
+.panel-grid.cols-2 { grid-template-columns: 1fr 1fr; align-items: start; }
+.panel-grid.cols-2 .col { display: grid; gap: 10px; align-content: start; }
+.panel-grid.cols-2 .estudio-block { padding-top: 10px; }
+@media (max-width: 760px) { .panel-grid.cols-2 { grid-template-columns: 1fr; } }
+.cut-pill[aria-pressed="true"] { background: var(--orange); border-color: var(--orange); color: var(--on-orange); }
+.strip-lane.is-cutting, .strip-lane.is-cutting .zbar { cursor: crosshair; }
+/* Ayuda y Sorpresa: una sola línea cada una */
+.mini-card { flex-wrap: nowrap; padding: 10px 12px; }
+.mini-card > b { flex: 1 1 auto; white-space: nowrap; font-size: 14px; }
+.mini-card select { min-width: 0; padding: 7px 8px; }
+.mini-card .btn { padding: 7px 12px; }
+.estudio .tabpanel { bottom: calc(100% + 14px); }

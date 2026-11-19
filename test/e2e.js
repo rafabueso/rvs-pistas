@@ -145,6 +145,10 @@ app.whenReady().then(async () => {
     check('bajar 10 deja el tramo al 15 %', (await ev(win, `document.querySelector('#strip-lane .zbar .zl').textContent`)) === '15 %');
     await ev(win, `document.querySelector('[data-level="0"]').click()`);
     check('Sin voz pone el tramo a cero', (await ev(win, `document.querySelector('#strip-lane .zbar .zl').textContent`)) === 'Sin voz');
+    const nB = await nBars();
+    await ev(win, `document.getElementById('cut-tool').click()`);
+    await ev(win, `(() => { const bar = document.querySelector('#strip-lane .zbar'); const r = bar.getBoundingClientRect(); const x = r.left + r.width / 2; bar.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, clientX: x, clientY: r.top + 5, bubbles: true })); })()`);
+    check('las tijeras dividen un tramo en dos', (await nBars()) === nB + 1, `${nB} → ${await nBars()}`);
     // zoom
     await ev(win, `document.getElementById('zoom-in').click(); document.getElementById('zoom-in').click();`);
     check('el zoom amplía las ondas y aparece el desplazador', (await ev(win, `document.getElementById('zoom-out-txt').textContent`)).startsWith('×') && (await ev(win, `!document.getElementById('strip-pan').hidden`)));

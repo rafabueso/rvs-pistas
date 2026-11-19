@@ -36,7 +36,7 @@ const state = {
 
 function freshEstudio() {
   return {
-    trim: false, start: 0, auto: 0, nivel: 'normales', seed: 1, zones: [], sel: [], target: 'all', coros: true, phrases: [],
+    trim: false, start: 0, auto: 0, nivel: 'normales', seed: 1, zones: [], sel: [], cutting: false, target: 'all', coros: true, phrases: [],
     vozSeg: 4, gap: 1.5, bpm: 0, bpm0: 0, g0: 0, cands: [], candIdx: 0, metro: 0, metroVol: 0.6, count: 0, countStep: 1, flip: 0, env: null, fps: 100,
   };
 }
@@ -399,7 +399,9 @@ function buildStrip() {
   const mk = (id, text, label) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pill'; b.id = id; b.textContent = text; b.setAttribute('aria-label', label); return b; };
   const zo = mk('zoom-out', '−', 'Alejar las ondas'), zi = mk('zoom-in', '+', 'Ampliar las ondas'), za = mk('zoom-all', 'Todo', 'Ver la canción entera');
   const zt = document.createElement('span'); zt.id = 'zoom-out-txt'; zt.className = 'muted';
-  tools.append(zo, zi, za, zt);
+  const cut = mk('cut-tool', '✂ Cortar', 'Dividir un tramo en dos: pulsa aquí y luego donde quieras cortarlo'); cut.setAttribute('aria-pressed', 'false'); cut.classList.add('cut-pill');
+  cut.addEventListener('click', () => setCutting(!state.estudio.cutting));
+  tools.append(zo, zi, za, cut, zt);
   ctl.append(name, tools);
   const right = document.createElement('div'); right.className = 'strip-right';
   const lane = document.createElement('div'); lane.className = 'strip-lane is-empty'; lane.id = 'strip-lane';
@@ -507,10 +509,26 @@ function startDown(ev) {
   }, () => { pushClick(); goStart(); });
 }
 
+function setCutting(on) {
+  const e = state.estudio; e.cutting = on && e.zones.length > 0;
+  const b = $('cut-tool'); if (b) b.setAttribute('aria-pressed', String(e.cutting));
+  const lane = $('strip-lane'); if (lane) lane.classList.toggle('is-cutting', e.cutting);
+}
+// Divide el tramo `idx` en dos, con un respiro de 0,1 s en el corte
+function cutZone(idx, t) {
+  const e = state.estudio; const [a, b, lv] = e.zones[idx]; const MIN = 0.5;
+  if (t - 0.05 - a < MIN || b - (t + 0.05) < MIN) return false;
+  const one = lv === undefined ? [a, t - 0.05] : [a, t - 0.05, lv], two = lv === undefined ? [t + 0.05, b] : [t + 0.05, b, lv];
+  e.zones.splice(idx, 1, one.map((v, i) => (i < 2 ? Math.round(v * 100) / 100 : v)), two.map((v, i) => (i < 2 ? Math.round(v * 100) / 100 : v)));
+  e.sel = [idx + 1]; e.target = 'one';
+  pushZones(); buildEdit(); syncEstudioUI();
+  return true;
+}
 function zoneDown(ev, idx, mode) {
   if (ev.target.classList && ev.target.classList.contains('zx')) return;
   ev.preventDefault(); ev.stopPropagation();
   const e = state.estudio; const lane = $('strip-lane'); const z = e.zones;
+  if (e.cutting) { cutZone(idx, xToT(ev.clientX, lane)); setCutting(false); return; }
   if (ev.shiftKey) e.sel = e.sel.includes(idx) ? e.sel.filter((i) => i !== idx) : [...e.sel, idx];
   else e.sel = [idx];
   e.target = 'one'; syncEstudioUI(); layoutEdit();
