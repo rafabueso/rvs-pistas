@@ -344,12 +344,6 @@ $('speed-reset').addEventListener('click', () => { $('speed').value = '100'; sta
 const setPitch = (v) => { state.semitones = Math.max(-6, Math.min(6, v)); state.player.setSemitones(state.semitones); refreshControls(); };
 $('pitch-down').addEventListener('click', () => setPitch(state.semitones - 1));
 $('pitch-up').addEventListener('click', () => setPitch(state.semitones + 1));
-document.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
-  const k = b.dataset.preset;
-  state.solo = [false, false, false];
-  state.muted = k === 'all' ? [false, false, false] : k === 'karaoke' ? [true, true, false] : k === 'backing' ? [true, false, false] : [false, true, true];
-  applyGains();
-}));
 window.addEventListener('keydown', (e) => {
   if ($('view-player').hidden || !state.player) return;
   const tag = document.activeElement && document.activeElement.tagName;
@@ -588,12 +582,6 @@ $('ayuda-apply').addEventListener('click', newAyuda);
 $('sorpresa-apply').addEventListener('click', () => {
   state.estudio.nivel = SORPRESA_NIVELES.includes($('sorpresa-nivel').value) ? $('sorpresa-nivel').value : 'normales'; newSorpresa();
 });
-const addZoneHere = () => {
-  const e = state.estudio; const v = state.view;
-  const c = state.pos >= v.start && state.pos <= v.start + v.span ? state.pos : v.start + v.span / 2;
-  e.zones = addZone(e.zones, c, { len: Math.min(5, v.span / 3), max: state.seconds, level: 0 }); e.sel = []; pushZones(); buildEdit(); syncEstudioUI();
-};
-$('zone-add').addEventListener('click', addZoneHere);
 // ajustar la voz: a todos los tramos o solo a los elegidos
 const zoneWhich = () => { const e = state.estudio; return e.target === 'one' && e.sel.length ? e.sel : null; };
 const afterLevel = () => { pushZones(); layoutEdit(); syncEstudioUI(); };

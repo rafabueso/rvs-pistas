@@ -73,8 +73,8 @@ app.whenReady().then(async () => {
     await ev(win, `document.getElementById('pitch-up').click(); document.getElementById('pitch-up').click();`);
     const pk = await ev(win, `document.getElementById('pitch-key').textContent`);
     check('subir 2 semitonos muestra la tonalidad nueva', pk.includes('→'), pk);
-    await ev(win, `document.querySelector('[data-preset="karaoke"]').click()`);
-    check('preset karaoke silencia voz y coros', await ev(win, `document.getElementById('mute-0').getAttribute('aria-pressed') === 'true' && document.getElementById('mute-1').getAttribute('aria-pressed') === 'true' && document.getElementById('mute-2').getAttribute('aria-pressed') === 'false'`));
+    await ev(win, `document.getElementById('mute-0').click(); document.getElementById('mute-1').click()`);
+    check('silenciar voz y coros deja solo la música', await ev(win, `document.getElementById('mute-0').getAttribute('aria-pressed') === 'true' && document.getElementById('mute-1').getAttribute('aria-pressed') === 'true' && document.getElementById('mute-2').getAttribute('aria-pressed') === 'false'`));
     await shot(win, '04-controles.png');
 
     // reproducir (puede no haber tarjeta de sonido en esta máquina de pruebas)
@@ -118,7 +118,7 @@ app.whenReady().then(async () => {
     check('La pestaña Voz por tramos se abre', await ev(win, `!document.getElementById('tab-voz').hidden && document.getElementById('tab-sonido').hidden`));
     const nBars = () => ev(win, `document.querySelectorAll('#strip-lane .zbar:not(.ghost)').length`);
     await ev(win, `document.getElementById('sorpresa-nivel').value = 'muchos'; document.getElementById('sorpresa-apply').click();`);
-    if ((await nBars()) === 0) await ev(win, `document.getElementById('zone-add').click()`); // canción de prueba muy corta: puede que no haya propuesta
+    if ((await nBars()) === 0) { await ev(win, ptr('#strip-lane', 'pointerdown', 0.55)); await ev(win, ptr('#strip-lane', 'pointermove', 0.8)); await ev(win, ptr('#strip-lane', 'pointerup', 0.8)); } // canción de prueba muy corta: puede que no haya propuesta
     let n0 = await nBars();
     console.log('  huecos propuestos:', n0, '| sombreados en la voz:', await ev(win, `document.querySelectorAll('#wave-0 .zone').length`), '| en los coros:', await ev(win, `document.querySelectorAll('#wave-1 .zone').length`));
     check('hay huecos y los coros los siguen', n0 >= 1 && n0 === (await ev(win, `document.querySelectorAll('#wave-1 .zone').length`)));
@@ -135,8 +135,6 @@ app.whenReady().then(async () => {
     // quitar y añadir
     await ev(win, `document.querySelector('#strip-lane .zbar .zx').click()`);
     check('la × quita el hueco', (await nBars()) === n0 - 1);
-    await ev(win, `document.getElementById('zone-add').click()`);
-    check('"+ Añadir hueco" crea uno nuevo', (await nBars()) === n0);
     // crear arrastrando sobre un espacio vacío
     await ev(win, `(() => { document.querySelectorAll('#strip-lane .zbar .zx').forEach((x) => x.click()); })()`);
     await ev(win, ptr('#strip-lane', 'pointerdown', 0.55)); await ev(win, ptr('#strip-lane', 'pointermove', 0.8)); await ev(win, ptr('#strip-lane', 'pointerup', 0.8));
