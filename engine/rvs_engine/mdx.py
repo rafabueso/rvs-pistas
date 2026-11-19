@@ -4,11 +4,28 @@ Sigue el procedimiento de Ultimate Vocal Remover: STFT -> modelo -> ISTFT por
 trozos solapados con ventana de Hann. No usa PyTorch.
 """
 import os
+import subprocess
+import sys
 from typing import Callable, Optional
 
 import numpy as np
 
 HOP = 1024
+
+
+def default_threads() -> int:
+    """Hilos para el modelo. En los Mac con chip Apple solo los núcleos rápidos: repartir el
+    trabajo también entre los de eficiencia hace que todos esperen al más lento."""
+    n = max(1, os.cpu_count() or 2)
+    if sys.platform == "darwin":
+        try:
+            out = subprocess.run(["sysctl", "-n", "hw.perflevel0.physicalcpu"], capture_output=True, text=True, timeout=2)
+            fast = int(out.stdout.strip())
+            if 1 <= fast <= n:
+                return fast
+        except Exception:
+            pass
+    return n
 
 
 class MDXModel:
@@ -17,7 +34,7 @@ class MDXModel:
         import onnxruntime as ort
 
         opts = ort.SessionOptions()
-        opts.intra_op_num_threads = threads or max(1, (os.cpu_count() or 2))
+        opts.intra_op_num_threads = threads or default_threads()
         opts.log_severity_level = 3
         self.session = ort.InferenceSession(path, opts, providers=["CPUExecutionProvider"])
         self.input_name = self.session.get_inputs()[0].name

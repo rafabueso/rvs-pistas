@@ -17,6 +17,7 @@ from .ffmpeg import ffmpeg_path
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 MODES = {"karaoke": "karaoke", "voz": "solo voz"}
 MAX_SECONDS = 20 * 60
+OVERLAP = 0.1  # menos solape que en Pistas (0,25): ~18 % menos trozos, y el cruce entre trozos sigue siendo suave
 AUDIO_EXT = {".mp3", ".m4a", ".wav", ".flac", ".aac", ".ogg", ".opus", ".mp4", ".mov", ".mkv", ".webm"}
 _SUFFIX = re.compile(r" \((?:karaoke|solo voz)\)$", re.I)
 
@@ -75,7 +76,7 @@ def run(src: str, mode, models_dir: str,
     path = models.ensure_model("voces", models_dir, lambda f: say("model", f * 100, "Preparando el modelo (solo la primera vez)"))
     model = MDXModel(path, spec["n_fft"], spec["dim_f"], spec["dim_t"], spec["compensate"])
     label = "Quitando la voz" if modes == ["karaoke"] else ("Sacando la voz" if modes == ["voz"] else "Haciendo karaoke y solo voz")
-    voice = model.separate(mix, on_progress=lambda f: say("separate", f * 100, label)) * spec["compensate"]
+    voice = model.separate(mix, overlap=OVERLAP, on_progress=lambda f: say("separate", f * 100, label)) * spec["compensate"]
 
     say("save", 100, "Guardando")
     paths = []
