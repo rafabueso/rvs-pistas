@@ -110,6 +110,11 @@ class MixSource {
       }
       this.current[k] = to;
     }
+    // Con claqueta, lo que hay antes del inicio elegido no suena: solo se oyen los clics
+    if (this.click && this.click.count > 0 && this.click.start > 0 && q0 < this.click.start) {
+      const mute = Math.min(frames, Math.max(0, Math.ceil(this.click.start - q0)));
+      out.fill(0, 0, mute * 2);
+    }
     if (this.click && frames > 0) this.addClicks(out, q0, frames);
     return frames;
   }

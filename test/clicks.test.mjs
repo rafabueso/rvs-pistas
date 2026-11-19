@@ -153,3 +153,15 @@ test('claqueta al doble de velocidad: 8 clics en 2 s', async () => {
   assert.equal(o.length, 8);
   assert.ok(Math.abs(o[1] - o[0] - 0.25) < 0.02);
 });
+
+test('con claqueta, la música anterior al inicio no suena', async () => {
+  const P = 0.5 * SR, start = 3 * SR;
+  const tone = { l: new Float32Array(8 * SR).fill(0.5), r: new Float32Array(8 * SR).fill(0.5) };
+  const x = await wavSamples(await renderToWav([tone], { ...base, tempo: 1, startFrame: start, click: { period: P, g0: 0, start, step: 0, parity: 0, vol: 0, count: 4, countStep: 1, countVol: 0.8 } }));
+  // la claqueta dura 2 s; justo después empieza la música; antes solo clics (sin el nivel constante 0,5)
+  const mid = x.slice(Math.floor(0.7 * SR), Math.floor(0.9 * SR));
+  const after = x.slice(Math.floor(2.3 * SR), Math.floor(2.5 * SR));
+  const mean = (a) => a.reduce((s, v) => s + Math.abs(v), 0) / a.length;
+  assert.ok(mean(mid) < 0.05, `antes del inicio suena ${mean(mid)}`);
+  assert.ok(mean(after) > 0.3, `después del inicio suena ${mean(after)}`);
+});
