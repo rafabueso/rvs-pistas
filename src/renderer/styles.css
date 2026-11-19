@@ -164,3 +164,4 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px; }
 .zbar.is-small .zh { width: 5px; }
 .zbar.is-small .zh::after { display: none; }
 .strip-lane .sband { border-radius: var(--radius-s) 0 0 var(--radius-s); }
+#bpm-in { width: 6em; }

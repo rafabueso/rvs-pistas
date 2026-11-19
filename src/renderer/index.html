@@ -189,37 +189,51 @@
         </div>
 
         <div class="estudio-block">
-          <span class="label">Metrónomo y claqueta</span>
+          <span class="label">Pulso, metrónomo y claqueta</span>
           <div class="estudio-row">
-            <label class="label" for="metro-mode">Metrónomo</label>
-            <select id="metro-mode">
-              <option value="0" selected>Sin metrónomo</option>
-              <option value="1">Tempo real (1×)</option>
-              <option value="2">Medio tempo (0,5×)</option>
-            </select>
-            <label class="label" for="metro-vol">Volumen</label>
-            <input id="metro-vol" type="range" min="10" max="100" value="60">
-            <label class="label" for="count-mode">Claqueta inicial</label>
-            <select id="count-mode">
-              <option value="0" selected>Sin claqueta</option>
-              <option value="4">4 tiempos</option>
-              <option value="8">8 tiempos (el 5 suena más agudo)</option>
-            </select>
-          </div>
-          <div id="beat-opts" class="estudio-row" hidden>
-            <span class="label">Pulso</span>
-            <button id="bpm-down" class="pill" type="button" aria-label="Bajar el tempo medio punto">−</button>
-            <b id="bpm-out">120</b> <span class="muted">BPM</span>
-            <button id="bpm-up" class="pill" type="button" aria-label="Subir el tempo medio punto">+</button>
+            <label class="label" for="bpm-in">Pulso</label>
+            <input id="bpm-in" type="number" min="40" max="240" step="0.01" inputmode="decimal" aria-label="Pulso en pulsaciones por minuto">
+            <span class="muted">BPM</span>
             <button id="bpm-half" class="pill" type="button" title="Si el clic va al doble de rápido">÷2</button>
             <button id="bpm-double" class="pill" type="button" title="Si el clic va a la mitad de rápido">×2</button>
-            <button id="beat-left" class="pill" type="button" aria-label="Adelantar el clic un poco" title="Adelantar el clic">◀</button>
-            <button id="beat-right" class="pill" type="button" aria-label="Retrasar el clic un poco" title="Retrasar el clic">▶</button>
-            <button id="beat-here" class="btn btn-soft" type="button" title="Para a la altura de un golpe de la música y pulsa">Un pulso cae aquí</button>
             <button id="beat-auto" class="btn btn-soft" type="button" title="Prueba otro de los tempos que la app cree posibles">Otro tempo</button>
+          </div>
+          <div class="estudio-row">
+            <span class="label">Metrónomo</span>
+            <span class="presets" role="group" aria-label="Metrónomo">
+              <button class="btn btn-soft" type="button" data-metro="0" aria-pressed="true">Sin</button>
+              <button class="btn btn-soft" type="button" data-metro="2" aria-pressed="false">Medio tiempo</button>
+              <button class="btn btn-soft" type="button" data-metro="1" aria-pressed="false">Tiempo real</button>
+              <button class="btn btn-soft" type="button" data-metro="0.5" aria-pressed="false">Doble tiempo</button>
+            </span>
+            <button id="metro-flip" class="btn btn-soft" type="button" hidden title="Si los clics caen en el contratiempo, cámbialos al otro golpe">Cambiar de tiempo</button>
+          </div>
+          <div class="estudio-row">
+            <span class="label">Claqueta</span>
+            <span class="presets" role="group" aria-label="Claqueta inicial">
+              <button class="btn btn-soft" type="button" data-count="0" aria-pressed="true">Sin</button>
+              <button class="btn btn-soft" type="button" data-count="4" aria-pressed="false">4 tiempos</button>
+              <button class="btn btn-soft" type="button" data-count="8" aria-pressed="false">8 tiempos</button>
+            </span>
+            <span id="cstep-opts" class="presets" role="group" aria-label="Velocidad de la claqueta" hidden>
+              <button class="btn btn-soft" type="button" data-cstep="2" aria-pressed="false">Más lenta</button>
+              <button class="btn btn-soft" type="button" data-cstep="1" aria-pressed="true">Al pulso</button>
+              <button class="btn btn-soft" type="button" data-cstep="0.5" aria-pressed="false">Más rápida</button>
+            </span>
             <button id="click-listen" class="btn btn-soft" type="button">Probar desde el inicio</button>
           </div>
-          <p id="beat-help" class="muted" hidden>Dale a Probar y comprueba que los clics caen con el ritmo de la música. Si no encajan, prueba "Otro tempo"; si van al doble o a la mitad, usa ÷2 o ×2. Para afinar, pulsa ◀ ▶ o para la reproducción sobre un golpe y pulsa "Un pulso cae aquí". Las rayitas de la franja Edición marcan los pulsos.</p>
+          <p id="beat-help" class="muted" hidden>Dale a Probar y comprueba que los clics caen con la música. Si no encajan, prueba "Otro tempo"; si van al doble o a la mitad, usa ÷2 o ×2; también puedes teclear el pulso exacto. En Medio tiempo, si suena en el contratiempo, pulsa "Cambiar de tiempo". Con 8 tiempos, el quinto suena más agudo. Las rayitas de la franja Edición marcan los pulsos.</p>
+          <details id="afinar" class="estudio-block">
+            <summary class="muted">Afinar</summary>
+            <div class="estudio-row">
+              <button id="beat-left" class="pill" type="button" aria-label="Adelantar el clic un poco" title="Adelantar el clic">◀</button>
+              <button id="beat-right" class="pill" type="button" aria-label="Retrasar el clic un poco" title="Retrasar el clic">▶</button>
+              <button id="beat-here" class="btn btn-soft" type="button" title="Para a la altura de un golpe de la música y pulsa">Un pulso cae aquí</button>
+              <button id="beat-start" class="btn btn-soft" type="button" title="Los pulsos empiezan justo donde empieza la pista">Pulso desde el inicio</button>
+              <label class="label" for="metro-vol">Volumen</label>
+              <input id="metro-vol" type="range" min="10" max="100" value="60">
+            </div>
+          </details>
         </div>
       </details>
     </section>

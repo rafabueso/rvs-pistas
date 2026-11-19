@@ -37,7 +37,7 @@ const state = {
 function freshEstudio() {
   return {
     trim: false, start: 0, auto: 0, mode: 'normal', nivel: 'normales', seed: 1, zones: [], zonesBy: {}, coros: true, phrases: [],
-    vozSeg: 4, gap: 1.5, bpm: 0, bpm0: 0, g0: 0, cands: [], candIdx: 0, metro: 0, metroVol: 0.6, count: 0,
+    vozSeg: 4, gap: 1.5, bpm: 0, bpm0: 0, g0: 0, cands: [], candIdx: 0, metro: 0, metroVol: 0.6, count: 0, countStep: 1, flip: 0, env: null, fps: 100,
   };
 }
 
@@ -310,7 +310,7 @@ async function openProject(p) {
       state.estudio.phrases = voicePhrases(stems[0], 44100);
       const bt = estimateBeats([stems[2], stems[0]], 44100, state.project.bpm);
       state.estudio.bpm = state.estudio.bpm0 = bt.bpm || state.project.bpm; state.estudio.g0 = bt.phase;
-      state.estudio.cands = bt.candidates || []; state.estudio.candIdx = 0;
+      state.estudio.cands = bt.candidates || []; state.estudio.candIdx = 0; state.estudio.env = bt.env || null; state.estudio.fps = bt.fps || 100;
       if (bt.bpm) { state.project.bpm = bt.bpm; $('chip-bpm').textContent = `${Math.round(bt.bpm)} BPM`; refreshControls(); } // el tempo de la app podía ir a un múltiplo equivocado
       syncEstudioUI();
     } catch { /* sin análisis: la marca se pone a mano y Sorpresa reparte por tiempo */ }
@@ -380,10 +380,13 @@ function syncEstudioUI() {
   $('ayuda-opts').hidden = e.mode !== 'ayuda';
   $('zones-help').hidden = e.mode === 'normal';
   $('ayuda-seg').value = String(e.vozSeg); $('ayuda-gap').value = String(e.gap);
-  $('metro-mode').value = String(e.metro); $('metro-vol').value = String(Math.round(e.metroVol * 100)); $('count-mode').value = String(e.count);
-  const beats = e.metro > 0 || e.count > 0;
-  $('beat-opts').hidden = !beats; $('beat-help').hidden = !beats;
-  $('bpm-out').textContent = String(Math.round(e.bpm * 10) / 10);
+  $('metro-vol').value = String(Math.round(e.metroVol * 100));
+  document.querySelectorAll('[data-metro]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.metro) === e.metro)));
+  document.querySelectorAll('[data-count]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.count) === e.count)));
+  document.querySelectorAll('[data-cstep]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.cstep) === e.countStep)));
+  $('cstep-opts').hidden = !e.count; $('metro-flip').hidden = e.metro !== 2;
+  $('beat-help').hidden = !(e.metro > 0 || e.count > 0);
+  if (document.activeElement !== $('bpm-in')) $('bpm-in').value = e.bpm ? String(Math.round(e.bpm * 100) / 100) : '';
 }
 
 // --- franja de edición: pestaña naranja (inicio) y huecos amarillos (silencios de voz) ---
@@ -492,9 +495,8 @@ function startDown(ev) {
   if (ev.currentTarget.classList.contains('is-off')) { setView(e.start - state.view.span * 0.1, state.view.span); return; } // ir al inicio, sin moverlo
   drag(ev, (m) => {
     let t = xToT(m.clientX, lane);
-    if (e.count && e.bpm > 30) t = nearestBeat(t); // con claqueta, el inicio cae siempre en un pulso
-    else t = snapTime(t, phrasePoints().map((p) => Math.max(0, p - 0.1)), snapTol());
-    e.start = Math.round(Math.max(0, Math.min(state.seconds - 1, t)) * (e.count ? 1000 : 10)) / (e.count ? 1000 : 10);
+    if (!m.altKey) t = snapTime(t, phrasePoints().map((p) => Math.max(0, p - 0.1)), snapTol()); // imán suave a las entradas; con Alt, libre del todo
+    e.start = Math.round(Math.max(0, Math.min(state.seconds - 1, t)) * 100) / 100;
     $('start-out').textContent = fmtTime(e.start); layoutEdit();
   }, () => { pushClick(); goStart(); });
 }
@@ -553,7 +555,7 @@ function newSorpresa() {
 }
 
 $('trim-on').addEventListener('change', () => {
-  const e = state.estudio; e.trim = $('trim-on').checked; resnapStart(); syncEstudioUI(); buildEdit(); pushClick();
+  const e = state.estudio; e.trim = $('trim-on').checked; $('start-out').textContent = fmtTime(e.start); syncEstudioUI(); buildEdit(); pushClick();
   if (e.trim) goStart();
 });
 async function playFromStart() {
@@ -588,43 +590,54 @@ $('coros-follow').addEventListener('change', () => { state.estudio.coros = $('co
 
 
 // --- metrónomo y claqueta ---
+const beatSec = () => 60 / (state.estudio.bpm || 120);
+const countSec = () => { const e = state.estudio; return e.count ? e.count * beatSec() * e.countStep : 0; };
+// Medio tiempo: de los dos repartos posibles (pulsos 1-3-5… o 2-4-6…) arranca por el que cae sobre golpes más fuertes
+function autoParity() {
+  const e = state.estudio; if (!e.env || !(e.bpm > 30)) return 0;
+  const T = beatSec(), t0 = e.g0 + Math.ceil(((e.trim ? e.start : 0) - e.g0) / T - 1e-9) * T;
+  const sum = [0, 0];
+  for (let k = 0; k < 80; k++) { const i = Math.round((t0 + k * T) * e.fps); if (i >= e.env.length) break; sum[k % 2] += e.env[i]; }
+  return sum[1] > sum[0] * 1.05 ? 1 : 0;
+}
 function clickConfig(sr = state.player ? state.player.sampleRate : 44100) {
   const e = state.estudio;
   if (!(e.metro || e.count) || !(e.bpm > 30)) return null;
-  return { period: (60 / e.bpm) * sr, g0: e.g0 * sr, start: (e.trim ? e.start : 0) * sr, every: e.metro, vol: e.metroVol, count: e.count, countVol: 0.8 };
+  const parity = e.metro === 2 ? autoParity() ^ e.flip : 0;
+  return { period: (60 / e.bpm) * sr, g0: e.g0 * sr, start: (e.trim ? e.start : 0) * sr, step: e.metro, parity, vol: e.metroVol, count: e.count, countStep: e.countStep, countVol: 0.8 };
 }
-const beatSec = () => 60 / (state.estudio.bpm || 120);
-const countSec = () => (state.estudio.count ? state.estudio.count * beatSec() : 0);
-const nearestBeat = (t) => { const e = state.estudio; return e.g0 + Math.round((t - e.g0) / beatSec()) * beatSec(); };
 function pushClick() {
   if (state.player && state.player.node) state.player.setClick(clickConfig());
   layoutEdit();
 }
-// Con claqueta, el inicio cae en un pulso para que la cuenta atrás entre justo en la música
-function resnapStart() {
-  const e = state.estudio;
-  if (e.count && e.trim && e.bpm > 30) { e.start = Math.max(0, Math.round(nearestBeat(e.start) * 1000) / 1000); if (e.start < 0) e.start += beatSec(); }
-  $('start-out').textContent = fmtTime(e.start);
-}
 function goStart() { const e = state.estudio; seekTo((e.trim ? e.start : 0) - countSec(), true); }
-function beatsChanged() { resnapStart(); syncEstudioUI(); pushClick(); }
-const setBpm = (v) => { const e = state.estudio; e.bpm = Math.max(40, Math.min(240, Math.round(v * 100) / 100)); beatsChanged(); };
+function beatsChanged() { $('start-out').textContent = fmtTime(state.estudio.start); syncEstudioUI(); pushClick(); }
+// El tempo de las demás zonas de la app (chip de arriba, velocidad) sigue siempre al pulso
+function setBpm(v) {
+  const e = state.estudio; if (!(v > 0)) { syncEstudioUI(); return; }
+  e.bpm = Math.max(40, Math.min(240, Math.round(v * 100) / 100));
+  if (state.project) { state.project.bpm = e.bpm; $('chip-bpm').textContent = `${Math.round(e.bpm * 10) / 10} BPM`; refreshControls(); }
+  beatsChanged();
+}
 const wrapG0 = (g) => ((g % beatSec()) + beatSec()) % beatSec();
 
-$('metro-mode').addEventListener('change', () => { state.estudio.metro = Number($('metro-mode').value) || 0; beatsChanged(); });
+document.querySelectorAll('[data-metro]').forEach((b) => b.addEventListener('click', () => { const e = state.estudio; e.metro = Number(b.dataset.metro); e.flip = 0; beatsChanged(); }));
+document.querySelectorAll('[data-count]').forEach((b) => b.addEventListener('click', () => { state.estudio.count = Number(b.dataset.count); beatsChanged(); }));
+document.querySelectorAll('[data-cstep]').forEach((b) => b.addEventListener('click', () => { state.estudio.countStep = Number(b.dataset.cstep); beatsChanged(); }));
+$('metro-flip').addEventListener('click', () => { state.estudio.flip ^= 1; beatsChanged(); });
 $('metro-vol').addEventListener('input', () => { state.estudio.metroVol = Number($('metro-vol').value) / 100; pushClick(); });
-$('count-mode').addEventListener('change', () => { state.estudio.count = Number($('count-mode').value) || 0; beatsChanged(); });
-$('bpm-up').addEventListener('click', () => setBpm(state.estudio.bpm + 0.5));
-$('bpm-down').addEventListener('click', () => setBpm(state.estudio.bpm - 0.5));
+$('bpm-in').addEventListener('change', () => setBpm(parseFloat($('bpm-in').value.replace(',', '.'))));
+$('bpm-in').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') $('bpm-in').blur(); });
 $('bpm-half').addEventListener('click', () => setBpm(state.estudio.bpm / 2));
 $('bpm-double').addEventListener('click', () => setBpm(state.estudio.bpm * 2));
 $('beat-left').addEventListener('click', () => { const e = state.estudio; e.g0 = wrapG0(e.g0 - 0.01); beatsChanged(); });
 $('beat-right').addEventListener('click', () => { const e = state.estudio; e.g0 = wrapG0(e.g0 + 0.01); beatsChanged(); });
 $('beat-here').addEventListener('click', () => { const e = state.estudio; e.g0 = wrapG0(Math.max(0, state.pos)); beatsChanged(); });
+$('beat-start').addEventListener('click', () => { const e = state.estudio; e.g0 = wrapG0(e.trim ? e.start : 0); beatsChanged(); });
 $('beat-auto').addEventListener('click', () => { // prueba el siguiente tempo candidato
   const e = state.estudio; if (!e.cands.length) return;
   e.candIdx = (e.candIdx + 1) % e.cands.length;
-  const c = e.cands[e.candIdx]; e.bpm = c.bpm; e.g0 = c.phase; beatsChanged();
+  const c = e.cands[e.candIdx]; e.flip = 0; e.g0 = c.phase; setBpm(c.bpm);
 });
 $('click-listen').addEventListener('click', playFromStart);
 
@@ -660,7 +673,7 @@ async function exportMix(format) {
     if (state.semitones !== 0) parts.push(`${state.semitones > 0 ? '+' : ''}${state.semitones}st`);
     if (state.estudio.mode !== 'normal') parts.push(state.estudio.mode);
     if (state.estudio.count) parts.push(`claqueta ${state.estudio.count}`);
-    if (state.estudio.metro) parts.push(state.estudio.metro === 2 ? 'metrónomo medio' : 'metrónomo');
+    if (state.estudio.metro) parts.push(state.estudio.metro === 2 ? 'metrónomo medio' : state.estudio.metro === 0.5 ? 'metrónomo doble' : 'metrónomo');
     const path = await api.saveExport(await blob.arrayBuffer(), format, parts.join(' · '));
     status.textContent = path ? 'Guardada ✓' : '';
     if (path) notice('Mezcla guardada.', 'info');

@@ -175,12 +175,15 @@ app.whenReady().then(async () => {
     check('Ayuda se activa y muestra sus opciones', await ev(win, `!document.getElementById('ayuda-opts').hidden && document.querySelector('[data-vozmode="ayuda"]').getAttribute('aria-pressed') === 'true'`));
     console.log('  huecos de Ayuda:', await ev(win, `document.querySelectorAll('#strip-lane .zbar:not(.ghost)').length`));
     await ev(win, `document.querySelector('[data-vozmode="normal"]').click()`);
-    check('el metrónomo y la claqueta enseñan sus controles de pulso', await ev(win, `(() => { const m = document.getElementById('metro-mode'); m.value = '1'; m.dispatchEvent(new Event('change')); const c = document.getElementById('count-mode'); c.value = '8'; c.dispatchEvent(new Event('change')); return !document.getElementById('beat-opts').hidden; })()`));
-    const bpmTxt = await ev(win, `document.getElementById('bpm-out').textContent`);
+    check('el metrónomo y la claqueta enseñan sus controles de pulso', await ev(win, `(() => { document.querySelector('[data-metro="2"]').click(); const f = !document.getElementById('metro-flip').hidden; document.querySelector('[data-metro="1"]').click(); document.querySelector('[data-count="8"]').click(); return f && !document.getElementById('cstep-opts').hidden; })()`));
+    const bpmTxt = await ev(win, `document.getElementById('bpm-in').value`);
     const bpmNum = parseFloat(bpmTxt);
     check('el pulso detectado es un tempo razonable', bpmNum > 50 && bpmNum < 220, `${bpmTxt} BPM`);
     await ev(win, `document.getElementById('bpm-half').click(); document.getElementById('bpm-double').click();`);
-    check('×2 y ÷2 vuelven al mismo tempo', parseFloat(await ev(win, `document.getElementById('bpm-out').textContent`)) === bpmNum);
+    check('×2 y ÷2 vuelven al mismo tempo', parseFloat(await ev(win, `document.getElementById('bpm-in').value`)) === bpmNum);
+    await ev(win, `(() => { const i = document.getElementById('bpm-in'); i.value = '100.5'; i.dispatchEvent(new Event('change')); })()`);
+    check('el pulso tecleado cambia también el tempo de arriba', (await ev(win, `document.getElementById('chip-bpm').textContent`)).startsWith('100.5'));
+    await ev(win, `(() => { const i = document.getElementById('bpm-in'); i.value = '${bpmNum}'; i.dispatchEvent(new Event('change')); })()`);
     await ev(win, `document.getElementById('click-listen').click()`);
     await sleep(600);
     const tclaq = await ev(win, `document.getElementById('time').textContent`);
