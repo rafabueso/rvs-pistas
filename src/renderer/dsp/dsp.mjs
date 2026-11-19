@@ -164,7 +164,11 @@ export class MixEngine {
     this.filter = new SimpleFilter(this.source, this.touch);
     this.scratch = new Float32Array(0);
     this.ended = false;
+    this.tempoValue = 1; this.semitoneValue = 0; this.started = false;
   }
+
+  // A tempo y tono originales el audio pasa tal cual, sin pasar por SoundTouch (que lo suaviza y le mete fase)
+  get direct() { return this.tempoValue === 1 && this.semitoneValue === 0; }
 
   get length() { return this.source.length; }
   get position() { return this.filter.sourcePosition - this.source.pad; }
@@ -180,11 +184,19 @@ export class MixEngine {
     }
   }
 
-  setTempo(t) { this.touch.tempo = clampTempo(t); }
+  setTempo(t) {
+    const was = this.direct;
+    this.tempoValue = clampTempo(t);
+    this.touch.tempo = this.tempoValue;
+    if (was !== this.direct && this.started) this.filter.clear();
+  }
   setSemitones(s) {
+    const was = this.direct;
     const v = clampSemitones(s);
+    this.semitoneValue = v;
     this.touch.pitchSemitones = v;
     this.source.ratio = Math.pow(2, v / 12);
+    if (was !== this.direct && this.started) this.filter.clear();
   }
   setGain(index, value) { this.source.target[index] = Math.max(0, Math.min(1.5, value)); }
   setZones(zones, gated) { this.source.setZones(zones, gated); }
@@ -210,7 +222,12 @@ export class MixEngine {
   // Rellena left/right con numFrames; devuelve cuántos frames reales ha dado.
   render(left, right, numFrames) {
     if (this.scratch.length < numFrames * 2) this.scratch = new Float32Array(numFrames * 2);
-    const got = this.filter.extract(this.scratch, numFrames);
+    this.started = true;
+    let got;
+    if (this.direct) {
+      got = this.source.extract(this.scratch, numFrames, this.filter.sourcePosition);
+      this.filter._sourcePosition += got;
+    } else got = this.filter.extract(this.scratch, numFrames);
     for (let i = 0; i < got; i++) {
       left[i] = this.scratch[i * 2];
       right[i] = this.scratch[i * 2 + 1];

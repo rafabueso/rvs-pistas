@@ -165,3 +165,17 @@ test('con claqueta, la música anterior al inicio no suena', async () => {
   assert.ok(mean(mid) < 0.05, `antes del inicio suena ${mean(mid)}`);
   assert.ok(mean(after) > 0.3, `después del inicio suena ${mean(after)}`);
 });
+
+test('a tempo y tono originales el audio sale idéntico y al cambiar de modo en pleno play no se rompe', () => {
+  const n = 6 * SR, l = new Float32Array(n);
+  for (let i = 0; i < n; i++) l[i] = 0.4 * Math.sin((2 * Math.PI * 330 * i) / SR);
+  const eng = new MixEngine([{ l, r: l.slice() }]);
+  eng.setGain(0, 1); eng.source.current[0] = 1;
+  const L = new Float32Array(4096), R = new Float32Array(4096);
+  eng.render(L, R, 4096);
+  for (let i = 0; i < 4096; i++) assert.ok(Math.abs(L[i] - l[i]) < 1e-6, 'idéntico');
+  eng.setTempo(0.8); eng.render(L, R, 4096); eng.render(L, R, 4096);
+  assert.ok(L.every(Number.isFinite));
+  eng.setTempo(1); eng.render(L, R, 4096);
+  assert.ok(L.every(Number.isFinite) && eng.position > 4096);
+});
