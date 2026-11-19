@@ -135,17 +135,18 @@
         </div>
       </div>
 
-      <details class="card estudio" id="estudio">
-        <summary>Pista de estudio <span class="muted">Recortar el inicio y cortar la voz</span></summary>
+      <details class="card estudio" id="estudio" open>
+        <summary>Pista de estudio <span class="muted">Quitar el principio y cortar la voz</span></summary>
 
         <div class="estudio-block">
-          <label class="check"><input id="trim-on" type="checkbox"> <span>Quitar el principio (silencio o introducción)</span></label>
-          <div id="trim-opts" class="estudio-row" hidden>
-            <span class="label">La pista empieza en <b id="start-out">0:00</b></span>
-            <button id="start-listen" class="btn btn-soft" type="button">Probar</button>
-            <button id="start-here" class="btn btn-soft" type="button">Mover aquí</button>
+          <div class="estudio-row">
+            <label class="check"><input id="trim-on" type="checkbox"> <span>Quitar el principio</span></label>
+            <span id="trim-opts" class="estudio-row" hidden>
+              <span class="label">Empieza en <b id="start-out">0:00</b></span>
+              <button id="start-listen" class="btn btn-soft" type="button">Probar</button>
+            </span>
           </div>
-          <p id="trim-help" class="muted" hidden>La app ha buscado dónde empieza la música (línea naranja). Si no acierta, reproduce hasta donde empieza la canción y pulsa "Mover aquí".</p>
+          <p id="trim-help" class="muted" hidden>Arrastra la pestaña naranja de la franja "Edición", encima de las ondas.</p>
         </div>
 
         <div class="estudio-block">
@@ -162,9 +163,10 @@
               <option value="muchos">Muchos</option>
             </select>
             <button id="sorpresa-otra" class="btn btn-soft" type="button">Otra versión</button>
+            <button id="zone-add" class="btn btn-soft" type="button">+ Añadir hueco</button>
           </div>
           <label class="check"><input id="coros-follow" type="checkbox" checked> <span>Silenciar también los coros cuando se corta la voz</span></label>
-          <p id="zones-help" class="muted" hidden>Los cortes siguen la voz: se calla cuando tocaba cantar, a veces a mitad de frase. Pulsa una zona sombreada para devolver la voz ahí.</p>
+          <p id="zones-help" class="muted" hidden>Los huecos amarillos de la franja "Edición" son los silencios de voz. Arrástralos para moverlos, tira de sus bordes para alargarlos o acortarlos, pulsa × para quitarlos, o arrastra sobre un espacio vacío de la franja para crear uno nuevo. Las ondas se pueden ampliar con − y + o con Ctrl y la rueda.</p>
         </div>
       </details>
     </section>

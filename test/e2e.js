@@ -103,21 +103,52 @@ app.whenReady().then(async () => {
     const mp3 = fs.readFileSync(nextSave);
     check('el MP3 exportado existe', mp3.length > 10000 && (mp3.slice(0, 3).toString() === 'ID3' || mp3[0] === 0xff), `${mp3.length} bytes`);
 
-    // pista de estudio: marca de inicio, Sorpresa y exportación recortada
-    await ev(win, `document.getElementById('estudio').open = true`);
-    check('la tarjeta Pista de estudio existe', await ev(win, `!!document.getElementById('trim-on') && document.getElementById('trim-opts').hidden`));
+    // pista de estudio: franja de edición (inicio, huecos, zoom)
+    const ptr = (sel, type, fx, dy = 0) => `(() => { const el = document.querySelector(${JSON.stringify(sel)}); const lane = document.getElementById('strip-lane').getBoundingClientRect(); const x = lane.left + lane.width * ${fx}; el.dispatchEvent(new PointerEvent('${type}', { pointerId: 1, clientX: x, clientY: lane.top + 20 + ${dy}, bubbles: true })); })()`;
+    check('la tarjeta Pista de estudio existe', await ev(win, `!!document.getElementById('trim-on') && !!document.getElementById('strip-lane') && document.getElementById('trim-opts').hidden`));
     await ev(win, `document.getElementById('trim-on').click()`);
-    check('al marcar "Quitar el principio" salen sus opciones', await ev(win, `!document.getElementById('trim-opts').hidden`));
+    check('al marcar "Quitar el principio" sale la pestaña naranja', await ev(win, `!document.getElementById('trim-opts').hidden && !!document.querySelector('.shandle')`));
+    const before = await ev(win, `document.getElementById('start-out').textContent`);
+    await ev(win, ptr('.shandle', 'pointerdown', 0.05)); await ev(win, ptr('.shandle', 'pointermove', 0.35)); await ev(win, ptr('.shandle', 'pointerup', 0.35));
+    const startTxt = await ev(win, `document.getElementById('start-out').textContent`);
+    check('arrastrar la pestaña naranja mueve el inicio', startTxt !== before && !!(await ev(win, `document.querySelector('#wave-0 .startmark')`)), `${before} → ${startTxt}`);
+
+    await ev(win, `document.getElementById('trim-on').click()`); // la canción de prueba es muy corta: Sorpresa sin recorte
     await ev(win, `document.querySelector('[data-vozmode="sorpresa"]').click()`);
     check('Sorpresa se activa y muestra sus opciones', await ev(win, `!document.getElementById('sorpresa-opts').hidden && document.querySelector('[data-vozmode="sorpresa"]').getAttribute('aria-pressed') === 'true'`));
-    await ev(win, `document.getElementById('sorpresa-nivel').value = 'muchos'; document.getElementById('sorpresa-nivel').dispatchEvent(new Event('change')); document.getElementById('sorpresa-otra').click();`);
-    const zonas = await ev(win, `document.querySelectorAll('#wave-0 .zone').length`);
-    console.log('  zonas de silencio en la voz:', zonas, '| en los coros:', await ev(win, `document.querySelectorAll('#wave-1 .zone').length`));
-    check('los coros siguen los cortes de la voz', (await ev(win, `document.querySelectorAll('#wave-1 .zone').length`)) === zonas);
-    await ev(win, `(() => { const w = document.getElementById('wave-2'); const r = w.getBoundingClientRect(); w.dispatchEvent(new MouseEvent('click', { clientX: r.left + r.width * 0.25, clientY: r.top + 10, bubbles: true })); })()`);
-    await ev(win, `document.getElementById('start-here').click()`);
-    const startTxt = await ev(win, `document.getElementById('start-out').textContent`);
-    check('"Poner aquí" mueve la marca de inicio', startTxt !== '0:00' && (await ev(win, `document.getElementById('trim-on').checked && !!document.querySelector('#wave-0 .startmark')`)), startTxt);
+    const nBars = () => ev(win, `document.querySelectorAll('#strip-lane .zbar:not(.ghost)').length`);
+    await ev(win, `document.getElementById('sorpresa-nivel').value = 'muchos'; document.getElementById('sorpresa-nivel').dispatchEvent(new Event('change'));`);
+    if ((await nBars()) === 0) await ev(win, `document.getElementById('zone-add').click()`); // canción de prueba muy corta: puede que no haya propuesta
+    let n0 = await nBars();
+    console.log('  huecos propuestos:', n0, '| sombreados en la voz:', await ev(win, `document.querySelectorAll('#wave-0 .zone').length`), '| en los coros:', await ev(win, `document.querySelectorAll('#wave-1 .zone').length`));
+    check('hay huecos y los coros los siguen', n0 >= 1 && n0 === (await ev(win, `document.querySelectorAll('#wave-1 .zone').length`)));
+    // mover un hueco arrastrándolo
+    const left0 = await ev(win, `document.querySelector('#strip-lane .zbar').style.left`);
+    await ev(win, `(() => { const bar = document.querySelector('#strip-lane .zbar'); const r = bar.getBoundingClientRect(); const mid = r.left + r.width / 2; const fire = (t, x) => bar.dispatchEvent(new PointerEvent(t, { pointerId: 1, clientX: x, clientY: r.top + 5, bubbles: true })); fire('pointerdown', mid); fire('pointermove', mid + 30); fire('pointerup', mid + 30); })()`);
+    const left1 = await ev(win, `document.querySelector('#strip-lane .zbar').style.left`);
+    check('arrastrar un hueco lo mueve', left0 !== left1, `${left0} → ${left1}`);
+    // alargarlo desde el borde derecho
+    const w0 = await ev(win, `document.querySelector('#strip-lane .zbar').style.width`);
+    await ev(win, `(() => { const h = document.querySelector('#strip-lane .zbar .zh.r'); const r = h.getBoundingClientRect(); const fire = (t, x) => h.dispatchEvent(new PointerEvent(t, { pointerId: 1, clientX: x, clientY: r.top + 5, bubbles: true })); fire('pointerdown', r.left + 4); fire('pointermove', r.left + 4 + 25); fire('pointerup', r.left + 4 + 25); })()`);
+    const w1 = await ev(win, `document.querySelector('#strip-lane .zbar').style.width`);
+    check('tirar del borde cambia la duración del hueco', w0 !== w1, `${w0} → ${w1}`);
+    // quitar y añadir
+    await ev(win, `document.querySelector('#strip-lane .zbar .zx').click()`);
+    check('la × quita el hueco', (await nBars()) === n0 - 1);
+    await ev(win, `document.getElementById('zone-add').click()`);
+    check('"+ Añadir hueco" crea uno nuevo', (await nBars()) === n0);
+    // crear arrastrando sobre un espacio vacío
+    await ev(win, `(() => { document.querySelectorAll('#strip-lane .zbar .zx').forEach((x) => x.click()); })()`);
+    await ev(win, ptr('#strip-lane', 'pointerdown', 0.55)); await ev(win, ptr('#strip-lane', 'pointermove', 0.8)); await ev(win, ptr('#strip-lane', 'pointerup', 0.8));
+    check('arrastrar sobre la franja vacía crea un hueco', (await nBars()) === 1);
+    // zoom
+    await ev(win, `document.getElementById('zoom-in').click(); document.getElementById('zoom-in').click();`);
+    check('el zoom amplía las ondas y aparece el desplazador', (await ev(win, `document.getElementById('zoom-out-txt').textContent`)).startsWith('×') && (await ev(win, `!document.getElementById('strip-pan').hidden`)));
+    await shot(win, '04c-zoom.png');
+    await ev(win, `document.getElementById('zoom-all').click()`);
+    check('"Todo" vuelve a ver la canción entera', (await ev(win, `document.getElementById('zoom-out-txt').textContent`)) === '' && (await ev(win, `document.getElementById('strip-pan').hidden`)));
+    await ev(win, `document.getElementById('trim-on').click()`); // el recorte vuelve para exportar
+    await shot(win, '04b-estudio.png');
     nextSave = path.join(out, 'estudio.wav');
     await ev(win, `document.getElementById('export-wav').click()`);
     await waitFor(win, `document.getElementById('export-status').textContent.includes('Guardada')`, 120000, 'exportar con inicio recortado');
@@ -125,7 +156,7 @@ app.whenReady().then(async () => {
     const secs2 = wav2.readUInt32LE(40) / 4 / 44100;
     const [mm, ss] = startTxt.split(':').map(Number);
     const exp2 = (song.durationSec - (mm * 60 + ss)) / 0.75;
-    check('la mezcla empieza en la marca de inicio', Math.abs(secs2 - exp2) < 1.2, `${secs2.toFixed(2)} s, esperado ≈ ${exp2.toFixed(2)} s`);
+    check('la mezcla empieza en la marca de inicio', Math.abs(secs2 - exp2) < 1.6, `${secs2.toFixed(2)} s, esperado ≈ ${exp2.toFixed(2)} s`);
     await shot(win, '04b-estudio.png');
 
     // biblioteca

@@ -150,3 +150,41 @@ export function zonesToFrames(zones, sampleRate = 44100) {
   zones.forEach(([a, b], i) => { out[i * 2] = Math.round(a * sampleRate); out[i * 2 + 1] = Math.round(b * sampleRate); });
   return out;
 }
+
+// Deja las zonas válidas: dentro de la canción, ordenadas, sin pisarse (las que se
+// tocan se unen) y sin huecos de menos de `min` segundos.
+export function normalizeZones(zones, { min = 0.5, max = Infinity } = {}) {
+  const z = zones
+    .map(([a, b]) => [Math.max(0, Math.min(a, b)), Math.min(max, Math.max(a, b))])
+    .filter(([a, b]) => b - a >= min)
+    .sort((x, y) => x[0] - y[0]);
+  const out = [];
+  for (const [a, b] of z) {
+    const last = out[out.length - 1];
+    if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+    else out.push([a, b]);
+  }
+  return out.map(([a, b]) => [round2(a), round2(b)]);
+}
+
+// Añade un hueco de `len` segundos centrado en `center`, dentro del espacio libre.
+export function addZone(zones, center, { len = 5, max, min = 0.5 } = {}) {
+  const sorted = normalizeZones(zones, { min: 0, max });
+  let lo = 0, hi = max;
+  for (const [a, b] of sorted) {
+    if (center >= a && center < b) center = b + len / 2; // sobre otro hueco: justo después
+  }
+  for (const [a, b] of sorted) { if (b <= center) lo = Math.max(lo, b); if (a > center) { hi = Math.min(hi, a); break; } }
+  if (lo > 0) lo += 0.2; // un respiro para que no se unan al vecino
+  if (hi < max) hi -= 0.2;
+  let a = Math.max(lo, center - len / 2), b = Math.min(hi, a + len);
+  a = Math.max(lo, b - len);
+  return b - a >= min ? normalizeZones([...sorted, [a, b]], { min, max }) : sorted;
+}
+
+// Acerca un instante al punto más próximo de `points` si está a menos de `tol` segundos.
+export function snapTime(t, points, tol) {
+  let best = t, d = tol;
+  for (const p of points) { const x = Math.abs(p - t); if (x <= d) { best = p; d = x; } }
+  return best;
+}

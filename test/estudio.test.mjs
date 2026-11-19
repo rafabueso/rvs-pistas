@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectStart, voicePhrases, makeSorpresa, removeZoneAt, zonesToFrames, rng, MixEngine, renderToWav } from '../src/renderer/dsp/dsp.mjs';
+import { normalizeZones, addZone, snapTime, detectStart, voicePhrases, makeSorpresa, removeZoneAt, zonesToFrames, rng, MixEngine, renderToWav } from '../src/renderer/dsp/dsp.mjs';
 
 const SR = 44100;
 const tone = (hz, from, to, total, amp = 0.5) => {
@@ -130,4 +130,25 @@ test('Sorpresa sigue la voz: los cortes caen en valles y no en medio de una fras
 test('Sorpresa sin frases detectadas vuelve al reparto por tiempo', () => {
   const z = makeSorpresa({ startSec: 0, endSec: 120, seed: 3, phrases: [] });
   assert.ok(z.length >= 3);
+});
+
+test('normalizar: ordena, une las que se pisan y quita las diminutas', () => {
+  assert.deepEqual(normalizeZones([[20, 25], [3, 8], [7, 12], [30, 30.2]], { max: 100 }), [[3, 12], [20, 25]]);
+  assert.deepEqual(normalizeZones([[-4, 2], [98, 130]], { max: 100 }), [[0, 2], [98, 100]]);
+  assert.deepEqual(normalizeZones([[9, 5]], { max: 100 }), [[5, 9]]);
+});
+
+test('añadir hueco: cabe en el espacio libre y no pisa a otros', () => {
+  const z = addZone([[10, 14]], 12, { max: 60 });
+  assert.ok(z.length === 2 && z[1][0] >= 14, JSON.stringify(z));
+  const w = addZone([[10, 14], [20, 24]], 17, { len: 8, max: 60 });
+  assert.equal(w.length, 3);
+  assert.ok(w[1][0] >= 14 && w[1][1] <= 20, JSON.stringify(w));
+  const x = addZone([], 1, { max: 60 });
+  assert.ok(x[0][0] >= 0 && x[0][1] - x[0][0] >= 4.9);
+});
+
+test('imán: se pega al punto cercano y no al lejano', () => {
+  assert.equal(snapTime(10.2, [10, 20], 0.3), 10);
+  assert.equal(snapTime(10.6, [10, 20], 0.3), 10.6);
 });

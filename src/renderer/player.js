@@ -40,9 +40,11 @@ export class Player {
     this.node = new AudioWorkletNode(this.ctx, 'stretch-processor', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
     this.node.connect(this.ctx.destination);
     const stems = await decodeStems(projectId, this.ctx);
-    const peaks = stems.map((s) => peaksOf(s));
     this.length = stems.reduce((m, s) => Math.max(m, s.l.length), 0);
     this.sampleRate = this.ctx.sampleRate;
+    // 60 puntos por segundo: suficiente para ampliar la onda hasta ver unos pocos segundos
+    const bins = Math.min(30000, Math.max(1400, Math.round((this.length / this.sampleRate) * 60)));
+    const peaks = stems.map((s) => peaksOf(s, bins));
     const ready = new Promise((resolve) => {
       this.node.port.onmessage = (e) => {
         const m = e.data;

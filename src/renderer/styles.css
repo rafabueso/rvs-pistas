@@ -133,7 +133,28 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px; }
 .check input { width: 18px; height: 18px; accent-color: var(--accent-blue); }
 .estudio select { padding: 9px 12px; border-radius: var(--radius-s); border: 1px solid var(--ink-muted); background: var(--surface); color: var(--ink); font-size: 14px; }
 .presets .btn[aria-pressed="true"] { background: var(--action); color: var(--on-action); }
-.zone { position: absolute; top: 0; bottom: 0; background: rgba(248, 184, 62, 0.45); border-left: 2px solid var(--yellow); border-right: 2px solid var(--yellow); cursor: pointer; }
-.zone:hover { background: rgba(248, 184, 62, 0.65); }
+.zone { position: absolute; top: 0; bottom: 0; background: rgba(248, 184, 62, 0.45); border-left: 2px solid var(--yellow); border-right: 2px solid var(--yellow); pointer-events: none; }
 .trimmed { position: absolute; top: 0; bottom: 0; left: 0; background: rgba(8, 42, 73, 0.18); pointer-events: none; }
 .startmark { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: var(--orange); pointer-events: none; }
+
+/* Franja de edición sobre las ondas */
+.track.t-strip { background: var(--tint-gray); }
+.strip-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.strip-tools .label { margin-right: 4px; }
+.strip-right { display: grid; gap: 6px; }
+.strip-lane { position: relative; height: 46px; border-radius: var(--radius-s); background: rgba(255, 255, 255, 0.7); overflow: hidden; touch-action: none; cursor: pointer; }
+.strip-lane.is-empty::after { content: 'Activa "Quitar el principio" o "Sorpresa" para editar aquí'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; color: var(--ink-muted); pointer-events: none; }
+.sband { position: absolute; top: 0; bottom: 0; left: 0; background: rgba(245, 119, 39, 0.22); pointer-events: none; display: flex; align-items: center; padding-left: 10px; font-size: 12px; color: var(--orange-text); font-weight: 700; white-space: nowrap; overflow: hidden; }
+.shandle { position: absolute; top: 4px; bottom: 4px; width: 16px; background: var(--orange); border-radius: 6px; cursor: ew-resize; touch-action: none; }
+.shandle::after { content: ''; position: absolute; left: 6px; right: 6px; top: 10px; bottom: 10px; border-left: 2px solid rgba(255,255,255,0.85); border-right: 2px solid rgba(255,255,255,0.85); }
+.zbar { position: absolute; top: 6px; bottom: 6px; min-width: 12px; background: var(--yellow); border-radius: 6px; cursor: grab; display: flex; align-items: center; justify-content: center; touch-action: none; box-shadow: 0 0 0 1px rgba(11,48,69,0.18) inset; }
+.zbar:active { cursor: grabbing; }
+.zbar.ghost { opacity: 0.6; pointer-events: none; }
+.zh { position: absolute; top: 0; bottom: 0; width: 10px; cursor: ew-resize; }
+.zh::after { content: ''; position: absolute; top: 9px; bottom: 9px; width: 3px; border-radius: 2px; background: rgba(11,48,69,0.4); }
+.zh.l { left: 0; } .zh.l::after { left: 3px; }
+.zh.r { right: 0; } .zh.r::after { right: 3px; }
+.zx { position: relative; z-index: 1; background: none; border: 0; font-weight: 700; font-size: 16px; line-height: 1; color: var(--on-yellow); cursor: pointer; padding: 2px 4px; }
+.zbar.is-small .zx { display: none; }
+.strip-pan { width: 100%; accent-color: var(--accent-blue); }
+.strip-pan[hidden] { display: none; }
