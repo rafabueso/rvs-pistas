@@ -183,27 +183,22 @@ $('cancel').addEventListener('click', () => { if (state.jobId) api.cancel(state.
 // ---------- reproductor ----------
 function buildTracks() {
   const root = $('tracks'); root.replaceChildren();
-  const mix = $('mix-rows'); mix.replaceChildren();
   root.append(buildStrip());
   TRACKS.forEach((t, i) => {
     const row = document.createElement('div'); row.className = `track ${t.cls}`;
     const ctl = document.createElement('div'); ctl.className = 'track-ctl';
     const name = document.createElement('span'); name.className = 'track-name'; name.textContent = t.label;
-    ctl.append(name);
+    const line = document.createElement('div'); line.className = 'track-line';
+    const vol = document.createElement('input'); vol.type = 'range'; vol.min = '0'; vol.max = '100'; vol.value = '100'; vol.id = `vol-${i}`;
+    vol.setAttribute('aria-label', `Volumen de ${t.label.slice(3)}`);
+    const m = document.createElement('button'); m.type = 'button'; m.className = 'pill m'; m.textContent = 'M'; m.title = 'Silenciar'; m.setAttribute('aria-label', 'Silenciar'); m.setAttribute('aria-pressed', 'false'); m.id = `mute-${i}`;
+    const s = document.createElement('button'); s.type = 'button'; s.className = 'pill s'; s.textContent = 'S'; s.title = 'Solo'; s.setAttribute('aria-label', 'Solo'); s.setAttribute('aria-pressed', 'false'); s.id = `solo-${i}`;
+    line.append(vol, m, s);
+    ctl.append(name, line);
     const wave = document.createElement('div'); wave.className = 'wave'; wave.id = `wave-${i}`;
     const canvas = document.createElement('canvas'); const head = document.createElement('div'); head.className = 'playhead'; head.id = `head-${i}`;
     wave.append(canvas, head);
     row.append(ctl, wave); root.append(row);
-    // la mezcla (silenciar, solo, volumen) vive en la pestaña Sonido
-    const mrow = document.createElement('div'); mrow.className = `mix-row ${t.cls}`;
-    const mname = document.createElement('span'); mname.className = 'track-name'; mname.textContent = t.label;
-    const btns = document.createElement('div'); btns.className = 'track-btns';
-    const m = document.createElement('button'); m.type = 'button'; m.className = 'pill m'; m.textContent = 'Silenciar'; m.setAttribute('aria-pressed', 'false'); m.id = `mute-${i}`;
-    const s = document.createElement('button'); s.type = 'button'; s.className = 'pill s'; s.textContent = 'Solo'; s.setAttribute('aria-pressed', 'false'); s.id = `solo-${i}`;
-    btns.append(m, s);
-    const vol = document.createElement('input'); vol.type = 'range'; vol.min = '0'; vol.max = '100'; vol.value = '100'; vol.id = `vol-${i}`;
-    vol.setAttribute('aria-label', `Volumen de ${t.label.slice(3)}`);
-    mrow.append(mname, btns, vol); mix.append(mrow);
     m.addEventListener('click', () => { state.muted[i] = !state.muted[i]; applyGains(); });
     s.addEventListener('click', () => { state.solo[i] = !state.solo[i]; applyGains(); });
     vol.addEventListener('input', () => { state.gains[i] = Number(vol.value) / 100; applyGains(); });
@@ -609,11 +604,13 @@ $('zone-level').addEventListener('input', () => { const e = state.estudio; e.zon
 document.querySelectorAll('[data-level]').forEach((b) => b.addEventListener('click', () => { const e = state.estudio; e.zones = setLevel(e.zones, Number(b.dataset.level) / 100, zoneWhich()); afterLevel(); }));
 document.querySelectorAll('[data-shift]').forEach((b) => b.addEventListener('click', () => { const e = state.estudio; e.zones = shiftLevel(e.zones, Number(b.dataset.shift) / 100, zoneWhich()); afterLevel(); }));
 // pestañas
-function openTab(name) {
+function openTab(name) { // name vacío = cerrar el cuadro
   document.querySelectorAll('.tab-btn').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   document.querySelectorAll('.tabpanel').forEach((p) => { p.hidden = p.id !== `tab-${name}`; });
+  $('estudio').classList.toggle('is-open', !!name);
 }
-document.querySelectorAll('.tab-btn').forEach((b) => b.addEventListener('click', () => openTab(b.dataset.tab)));
+document.querySelectorAll('.tab-btn').forEach((b) => b.addEventListener('click', () => openTab(b.getAttribute('aria-selected') === 'true' ? '' : b.dataset.tab)));
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') openTab(''); });
 $('coros-follow').addEventListener('change', () => { state.estudio.coros = $('coros-follow').checked; pushZones(); buildEdit(); });
 
 

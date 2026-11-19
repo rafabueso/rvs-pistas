@@ -221,3 +221,23 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px; }
 .mini-card .muted { margin: 0; font-size: 12px; }
 .estudio .btn { padding: 7px 12px; font-size: 13px; min-height: 0; }
 .estudio .estudio-row { gap: 8px; }
+
+/* Estilo Moises: ondas altas con su mezcla en la fila; abajo transporte y pestañas que abren cuadros flotantes */
+.player-card { position: static; box-shadow: none; padding: 12px 14px; gap: 10px; }
+.player-card .track { grid-template-columns: 250px 1fr; padding: 6px 10px; align-items: stretch; }
+.player-card .track.t-strip { align-items: center; padding: 4px 10px; }
+.player-card .track-ctl { align-content: center; gap: 10px; }
+.player-card .track-name { font-size: 14px; }
+.track-line { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; }
+.player-card .track.t-strip .track-ctl { display: flex; }
+.player-card .track:not(.t-strip) .wave { height: 96px; }
+.player-card .pill { min-width: 30px; height: 28px; padding: 0 6px; }
+.transport-bar { border-top: 1px solid var(--line); padding-top: 10px; }
+.estudio { position: relative; padding: 0; background: none; border: 0; margin: 0 auto; width: fit-content; max-width: 100%; }
+.estudio .tabbar { margin: 0; border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 6px; gap: 4px; background: var(--surface); }
+.estudio .tab-btn { border: 0; border-radius: var(--radius-pill); padding: 8px 18px; }
+.estudio .tab-btn[aria-selected="true"] { background: var(--ink); color: #fff; }
+.estudio .tabpanel { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); width: min(920px, 94vw); max-height: 58vh; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 16px; box-shadow: 0 12px 32px rgba(8,42,73,0.22); z-index: 30; }
+.estudio .tabpanel[hidden] { display: none; }
+#zones-help { display: none; }
+.estudio .tabpanel { padding: 12px 16px; }
