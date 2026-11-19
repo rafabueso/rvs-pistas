@@ -152,3 +152,18 @@ test('imán: se pega al punto cercano y no al lejano', () => {
   assert.equal(snapTime(10.2, [10, 20], 0.3), 10);
   assert.equal(snapTime(10.6, [10, 20], 0.3), 10.6);
 });
+
+import { zoneLevels, setLevel, shiftLevel } from '../src/renderer/dsp/estudio.mjs';
+test('niveles de tramo: poner, subir y unir solo si el nivel coincide', () => {
+  let z = [[1, 3], [5, 8], [10, 12]];
+  assert.deepEqual(Array.from(zoneLevels(z)), [0, 0, 0]);
+  z = setLevel(z, 0.25);
+  assert.deepEqual(z.map((t) => t[2]), [0.25, 0.25, 0.25]);
+  z = shiftLevel(z, 0.25, [1]);
+  assert.deepEqual(z.map((t) => t[2]), [0.25, 0.5, 0.25]);
+  z = shiftLevel(z, -0.9);
+  assert.deepEqual(z.map((t) => t[2]), [0, 0, 0]);
+  assert.equal(normalizeZones([[1, 3, 0.2], [2.5, 5, 0.2]]).length, 1, 'mismo nivel: se unen');
+  const d = normalizeZones([[1, 4, 0.2], [3, 6, 0.8]]);
+  assert.deepEqual(d, [[1, 3, 0.2], [3, 6, 0.8]], 'distinto nivel: el segundo recorta al primero');
+});

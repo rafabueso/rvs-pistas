@@ -1,5 +1,5 @@
 import { Player, decodeStems } from './player.js';
-import { renderToWav, detectStart, voicePhrases, makeSorpresa, makeAyuda, estimateBeats, normalizeZones, addZone, snapTime, zonesToFrames, SORPRESA_NIVELES } from './vendor/dsp.js';
+import { renderToWav, detectStart, voicePhrases, makeSorpresa, makeAyuda, estimateBeats, normalizeZones, addZone, snapTime, zonesToFrames, zoneLevels, setLevel, shiftLevel, SORPRESA_NIVELES } from './vendor/dsp.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -36,12 +36,14 @@ const state = {
 
 function freshEstudio() {
   return {
-    trim: false, start: 0, auto: 0, mode: 'normal', nivel: 'normales', seed: 1, zones: [], zonesBy: {}, coros: true, phrases: [],
+    trim: false, start: 0, auto: 0, nivel: 'normales', seed: 1, zones: [], sel: [], target: 'all', coros: true, phrases: [],
     vozSeg: 4, gap: 1.5, bpm: 0, bpm0: 0, g0: 0, cands: [], candIdx: 0, metro: 0, metroVol: 0.6, count: 0, countStep: 1, flip: 0, env: null, fps: 100,
   };
 }
 
 // ---------- utilidades ----------
+const TEMPOS = [[60, 'Largo'], [76, 'Adagio'], [108, 'Andante'], [120, 'Moderato'], [156, 'Allegro'], [176, 'Vivace']];
+const tempoName = (bpm) => (TEMPOS.find(([m]) => bpm < m) || [0, 'Presto'])[1];
 const fmtTime = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const keyName = (key, shift = 0) => `${NOTES[(((key.tonic + shift) % 12) + 12) % 12]} ${key.mode}`;
 
@@ -322,7 +324,9 @@ function refreshControls() {
   const p = state.project; if (!p) return;
   const pct = Math.round(state.tempo * 100);
   $('speed-out').textContent = `${pct} %`;
-  $('speed-bpm').textContent = `≈ ${Math.round(p.bpm * state.tempo)} BPM`;
+  const bpmNow = Math.round(p.bpm * state.tempo);
+  $('speed-bpm').textContent = `≈ ${bpmNow} BPM`;
+  $('speed-name').textContent = tempoName(bpmNow);
   const s = state.semitones;
   $('pitch-val').textContent = s > 0 ? `+${s}` : String(s);
   $('pitch-out').textContent = s === 0 ? 'original' : `${s > 0 ? '+' : ''}${s} semitonos`;
@@ -364,8 +368,7 @@ async function decodeForAnalysis() {
 const gatedStems = () => [true, state.estudio.coros, false];
 function pushZones() {
   const e = state.estudio;
-  const zones = e.mode !== 'normal' ? e.zones : [];
-  if (state.player && state.player.node) state.player.setZones(zonesToFrames(zones, state.player.sampleRate), gatedStems());
+  if (state.player && state.player.node) state.player.setZones(zonesToFrames(e.zones, state.player.sampleRate), gatedStems(), zoneLevels(e.zones));
 }
 
 function syncEstudioUI() {
@@ -375,11 +378,15 @@ function syncEstudioUI() {
   $('trim-opts').hidden = !e.trim; $('trim-help').hidden = !e.trim;
   $('coros-follow').checked = e.coros;
   $('sorpresa-nivel').value = e.nivel;
-  document.querySelectorAll('[data-vozmode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.vozmode === e.mode)));
-  $('sorpresa-opts').hidden = e.mode !== 'sorpresa';
-  $('ayuda-opts').hidden = e.mode !== 'ayuda';
-  $('zones-help').hidden = e.mode === 'normal';
-  $('ayuda-seg').value = String(e.vozSeg); $('ayuda-gap').value = String(e.gap);
+  $('ayuda-seg').value = String(e.vozSeg);
+  document.querySelectorAll('[data-target]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.target === e.target)));
+  $('zone-count').textContent = e.zones.length ? `(${e.zones.length})` : '';
+  const first = e.zones[e.target === 'one' && e.sel.length ? e.sel[0] : 0];
+  const lv = first ? Math.round((first[2] === undefined ? 0 : first[2]) * 100) : 0;
+  $('zone-level').value = String(lv); $('zone-level-out').textContent = lv === 0 ? 'sin voz' : `${lv} %`;
+  const none = !e.zones.length;
+  ['zone-level'].forEach((id) => { $(id).disabled = none; });
+  document.querySelectorAll('[data-level],[data-shift],[data-target]').forEach((b) => { b.disabled = none; });
   $('metro-vol').value = String(Math.round(e.metroVol * 100));
   document.querySelectorAll('[data-metro]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.metro) === e.metro)));
   document.querySelectorAll('[data-count]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.count) === e.count)));
@@ -422,7 +429,7 @@ function buildEdit() {
   lane.replaceChildren();
   TRACKS.forEach((_, i) => $(`wave-${i}`).querySelectorAll('.ov').forEach((n) => n.remove()));
   edit = { bars: [], shades: [[], [], []], band: null, handle: null, trimmed: [], lines: [] };
-  lane.classList.toggle('is-empty', !(e.trim || e.mode !== 'normal'));
+  lane.classList.toggle('is-empty', !(e.trim || e.zones.length));
   if (e.trim) {
     edit.band = document.createElement('div'); edit.band.className = 'sband'; edit.band.textContent = 'se quita';
     edit.handle = document.createElement('div'); edit.handle.className = 'shandle'; edit.handle.title = 'Arrastra para elegir dónde empieza la pista';
@@ -433,14 +440,15 @@ function buildEdit() {
       $(`wave-${i}`).append(t, m); edit.trimmed.push(t); edit.lines.push(m);
     });
   }
-  if (e.mode !== 'normal') {
+  {
     e.zones.forEach((_, idx) => {
       const bar = document.createElement('div'); bar.className = 'zbar'; bar.dataset.i = String(idx);
       const l = document.createElement('div'); l.className = 'zh l'; const r = document.createElement('div'); r.className = 'zh r';
       const x = document.createElement('button'); x.type = 'button'; x.className = 'zx'; x.textContent = '×'; x.setAttribute('aria-label', 'Quitar este hueco'); x.title = 'Quitar este hueco';
       x.addEventListener('pointerdown', (ev) => ev.stopPropagation());
-      x.addEventListener('click', (ev) => { ev.stopPropagation(); e.zones.splice(idx, 1); pushZones(); buildEdit(); });
-      bar.append(l, r, x);
+      x.addEventListener('click', (ev) => { ev.stopPropagation(); e.zones.splice(idx, 1); e.sel = e.sel.filter((i) => i !== idx).map((i) => (i > idx ? i - 1 : i)); pushZones(); buildEdit(); syncEstudioUI(); });
+      const lbl = document.createElement('span'); lbl.className = 'zl';
+      bar.append(l, r, lbl, x);
       bar.addEventListener('pointerdown', (ev) => zoneDown(ev, idx, ev.target === l ? 'l' : ev.target === r ? 'r' : 'move'));
       lane.append(bar); edit.bars.push(bar);
       [0, 1].forEach((i) => {
@@ -476,7 +484,11 @@ function layoutEdit() {
   e.zones.forEach(([a, b], idx) => {
     const l = tToPct(a), w = ((b - a) / state.view.span) * 100;
     const bar = edit.bars[idx];
-    if (bar) { bar.style.left = `${l}%`; bar.style.width = `${w}%`; bar.style.display = l + w < 0 || l > 100 ? 'none' : ''; bar.classList.toggle('is-small', (w / 100) * ($('strip-lane').clientWidth || 600) < 34); }
+    if (bar) {
+      const lv = e.zones[idx][2] === undefined ? 0 : e.zones[idx][2];
+      bar.classList.toggle('is-quiet', lv === 0); bar.classList.toggle('is-sel', e.sel.includes(idx));
+      bar.querySelector('.zl').textContent = lv === 0 ? 'Sin voz' : `${Math.round(lv * 100)} %`;
+      bar.style.left = `${l}%`; bar.style.width = `${w}%`; bar.style.display = l + w < 0 || l > 100 ? 'none' : ''; bar.classList.toggle('is-small', (w / 100) * ($('strip-lane').clientWidth || 600) < 34); }
     edit.shades.forEach((arr) => { const z = arr[idx]; if (z) { z.style.left = `${l}%`; z.style.width = `${w}%`; } });
   });
 }
@@ -505,6 +517,9 @@ function zoneDown(ev, idx, mode) {
   if (ev.target.classList && ev.target.classList.contains('zx')) return;
   ev.preventDefault(); ev.stopPropagation();
   const e = state.estudio; const lane = $('strip-lane'); const z = e.zones;
+  if (ev.shiftKey) e.sel = e.sel.includes(idx) ? e.sel.filter((i) => i !== idx) : [...e.sel, idx];
+  else e.sel = [idx];
+  e.target = 'one'; syncEstudioUI(); layoutEdit();
   const [a0, b0] = z[idx]; const t0 = xToT(ev.clientX, lane);
   const lo = idx > 0 ? z[idx - 1][1] + 0.05 : 0, hi = idx < z.length - 1 ? z[idx + 1][0] - 0.05 : state.seconds;
   const MIN = 0.5; const pts = phrasePoints();
@@ -528,7 +543,7 @@ function zoneDown(ev, idx, mode) {
 function laneDown(ev) {
   if (ev.target !== ev.currentTarget && !(ev.target.classList && ev.target.classList.contains('sband'))) return;
   const e = state.estudio; const lane = ev.currentTarget; const x0 = ev.clientX; const t0 = xToT(x0, lane);
-  const can = e.mode !== 'normal' && !e.zones.some(([a, b]) => t0 >= a && t0 < b);
+  const can = !e.zones.some(([a, b]) => t0 >= a && t0 < b);
   let ghost = null; let moved = false;
   const free = () => { const prev = e.zones.filter(([, b]) => b <= t0).map(([, b]) => b); const next = e.zones.filter(([a]) => a > t0).map(([a]) => a); return [prev.length ? Math.max(...prev) + 0.05 : 0, next.length ? Math.min(...next) - 0.05 : state.seconds]; };
   const [lo, hi] = free();
@@ -543,15 +558,15 @@ function laneDown(ev) {
     if (ghost) ghost.remove();
     if (!moved) { seekTo(t0); return; }
     const [a, b] = range(xToT(u.clientX, lane));
-    if (b - a >= 0.5) { e.zones = normalizeZones([...e.zones, [a, b]], { max: state.seconds }); pushZones(); buildEdit(); }
+    if (b - a >= 0.5) { e.zones = normalizeZones([...e.zones, [a, b, 0]], { max: state.seconds }); e.sel = []; pushZones(); buildEdit(); syncEstudioUI(); }
   });
 }
 
 function newSorpresa() {
   const e = state.estudio;
   e.seed = (e.seed % 1000000) + 1 + Math.floor(Math.random() * 1000);
-  e.zones = makeSorpresa({ startSec: e.trim ? e.start : 0, endSec: state.seconds, nivel: e.nivel, seed: e.seed, phrases: e.phrases });
-  pushZones(); buildEdit();
+  e.zones = makeSorpresa({ startSec: e.trim ? e.start : 0, endSec: state.seconds, nivel: e.nivel, seed: e.seed, phrases: e.phrases }).map(([a, b]) => [a, b, 0]);
+  e.sel = []; e.target = 'all'; pushZones(); buildEdit(); syncEstudioUI();
 }
 
 $('trim-on').addEventListener('change', () => {
@@ -563,29 +578,37 @@ async function playFromStart() {
   if (state.player && !state.player.playing) { await state.player.play(); setPlayIcon(true); }
 }
 $('start-listen').addEventListener('click', playFromStart);
-document.querySelectorAll('[data-vozmode]').forEach((b) => b.addEventListener('click', () => {
-  const e = state.estudio; const next = b.dataset.vozmode; if (next === e.mode) return;
-  if (e.mode !== 'normal') e.zonesBy[e.mode] = e.zones; // cada modo recuerda sus huecos
-  e.mode = next; e.zones = e.zonesBy[next] || []; syncEstudioUI();
-  if (next === 'sorpresa' && !e.zones.length) newSorpresa();
-  else if (next === 'ayuda' && !e.zones.length) newAyuda();
-  else { pushZones(); buildEdit(); }
-}));
 function newAyuda() {
   const e = state.estudio;
-  e.zones = makeAyuda({ phrases: e.phrases, endSec: state.seconds, vozSeg: e.vozSeg, gap: e.gap });
-  pushZones(); buildEdit();
+  e.vozSeg = Number($('ayuda-seg').value) || 4;
+  e.zones = makeAyuda({ phrases: e.phrases, endSec: state.seconds, vozSeg: e.vozSeg, gap: e.gap }).map(([a, b]) => [a, b, 0]);
+  e.sel = []; e.target = 'all'; pushZones(); buildEdit(); syncEstudioUI();
 }
-$('ayuda-seg').addEventListener('change', () => { state.estudio.vozSeg = Number($('ayuda-seg').value) || 4; newAyuda(); });
-$('ayuda-gap').addEventListener('change', () => { state.estudio.gap = Number($('ayuda-gap').value) || 1.5; newAyuda(); });
-$('sorpresa-nivel').addEventListener('change', () => { state.estudio.nivel = SORPRESA_NIVELES.includes($('sorpresa-nivel').value) ? $('sorpresa-nivel').value : 'normales'; newSorpresa(); });
-$('sorpresa-otra').addEventListener('click', newSorpresa);
+$('ayuda-apply').addEventListener('click', newAyuda);
+$('sorpresa-apply').addEventListener('click', () => {
+  state.estudio.nivel = SORPRESA_NIVELES.includes($('sorpresa-nivel').value) ? $('sorpresa-nivel').value : 'normales'; newSorpresa();
+});
 const addZoneHere = () => {
   const e = state.estudio; const v = state.view;
   const c = state.pos >= v.start && state.pos <= v.start + v.span ? state.pos : v.start + v.span / 2;
-  e.zones = addZone(e.zones, c, { len: Math.min(5, v.span / 3), max: state.seconds }); pushZones(); buildEdit();
+  e.zones = addZone(e.zones, c, { len: Math.min(5, v.span / 3), max: state.seconds, level: 0 }); e.sel = []; pushZones(); buildEdit(); syncEstudioUI();
 };
-$('zone-add').addEventListener('click', addZoneHere); $('zone-add-ayuda').addEventListener('click', addZoneHere);
+$('zone-add').addEventListener('click', addZoneHere);
+// ajustar la voz: a todos los tramos o solo a los elegidos
+const zoneWhich = () => { const e = state.estudio; return e.target === 'one' && e.sel.length ? e.sel : null; };
+const afterLevel = () => { pushZones(); layoutEdit(); syncEstudioUI(); };
+document.querySelectorAll('[data-target]').forEach((b) => b.addEventListener('click', () => {
+  const e = state.estudio; e.target = b.dataset.target; if (e.target === 'all') e.sel = []; syncEstudioUI(); layoutEdit();
+}));
+$('zone-level').addEventListener('input', () => { const e = state.estudio; e.zones = setLevel(e.zones, Number($('zone-level').value) / 100, zoneWhich()); afterLevel(); });
+document.querySelectorAll('[data-level]').forEach((b) => b.addEventListener('click', () => { const e = state.estudio; e.zones = setLevel(e.zones, Number(b.dataset.level) / 100, zoneWhich()); afterLevel(); }));
+document.querySelectorAll('[data-shift]').forEach((b) => b.addEventListener('click', () => { const e = state.estudio; e.zones = shiftLevel(e.zones, Number(b.dataset.shift) / 100, zoneWhich()); afterLevel(); }));
+// pestañas
+function openTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  document.querySelectorAll('.tabpanel').forEach((p) => { p.hidden = p.id !== `tab-${name}`; });
+}
+document.querySelectorAll('.tab-btn').forEach((b) => b.addEventListener('click', () => openTab(b.dataset.tab)));
 $('coros-follow').addEventListener('change', () => { state.estudio.coros = $('coros-follow').checked; pushZones(); buildEdit(); });
 
 
@@ -664,14 +687,14 @@ async function exportMix(format) {
     const blob = await renderToWav(stems, {
       gains: [0, 1, 2].map(effectiveGain), tempo: state.tempo, semitones: state.semitones, sampleRate: 44100, vocal: [true, true, false],
       startFrame: state.estudio.trim ? Math.round(state.estudio.start * 44100) : 0,
-      zones: state.estudio.mode !== 'normal' ? zonesToFrames(state.estudio.zones, 44100) : null, gated: gatedStems(), click: clickConfig(44100),
+      zones: state.estudio.zones.length ? zonesToFrames(state.estudio.zones, 44100) : null, levels: zoneLevels(state.estudio.zones), gated: gatedStems(), click: clickConfig(44100),
       onProgress: (p) => { status.textContent = `Creando la mezcla… ${Math.round(p * 100)} %`; },
     });
     status.textContent = 'Elige dónde guardarla…';
     const parts = [state.project.title];
     if (state.tempo !== 1) parts.push(`${Math.round(state.tempo * 100)}%`);
     if (state.semitones !== 0) parts.push(`${state.semitones > 0 ? '+' : ''}${state.semitones}st`);
-    if (state.estudio.mode !== 'normal') parts.push(state.estudio.mode);
+    if (state.estudio.zones.length) parts.push('tramos');
     if (state.estudio.count) parts.push(`claqueta ${state.estudio.count}`);
     if (state.estudio.metro) parts.push(state.estudio.metro === 2 ? 'metrónomo medio' : state.estudio.metro === 0.5 ? 'metrónomo doble' : 'metrónomo');
     const path = await api.saveExport(await blob.arrayBuffer(), format, parts.join(' · '));

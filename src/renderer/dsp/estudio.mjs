@@ -151,35 +151,55 @@ export function zonesToFrames(zones, sampleRate = 44100) {
   return out;
 }
 
-// Deja las zonas válidas: dentro de la canción, ordenadas, sin pisarse (las que se
-// tocan se unen) y sin huecos de menos de `min` segundos.
+// Nivel de voz de cada tramo (0 = silencio total, 1 = voz normal); sin dato, silencio
+export function zoneLevels(zones) {
+  return Float32Array.from(zones.map((z) => (z[2] === undefined ? 0 : Math.max(0, Math.min(1, z[2])))));
+}
+
+const withLevel = (a, b, lv) => (lv === undefined ? [round2(a), round2(b)] : [round2(a), round2(b), lv]);
+
+// Deja los tramos válidos: dentro de la canción, ordenados y sin huecos de menos de `min` segundos.
+// Los que se pisan con el mismo nivel se unen; si el nivel es distinto, el que empieza después recorta al anterior.
 export function normalizeZones(zones, { min = 0.5, max = Infinity } = {}) {
   const z = zones
-    .map(([a, b]) => [Math.max(0, Math.min(a, b)), Math.min(max, Math.max(a, b))])
+    .map(([a, b, lv]) => [Math.max(0, Math.min(a, b)), Math.min(max, Math.max(a, b)), lv])
     .filter(([a, b]) => b - a >= min)
     .sort((x, y) => x[0] - y[0]);
   const out = [];
-  for (const [a, b] of z) {
+  for (const cur of z) {
     const last = out[out.length - 1];
-    if (last && a <= last[1]) last[1] = Math.max(last[1], b);
-    else out.push([a, b]);
+    if (last && cur[0] <= last[1]) {
+      if (last[2] === cur[2]) last[1] = Math.max(last[1], cur[1]);
+      else { last[1] = cur[0]; if (last[1] - last[0] < min) out.pop(); out.push(cur); }
+    } else out.push(cur);
   }
-  return out.map(([a, b]) => [round2(a), round2(b)]);
+  return out.map(([a, b, lv]) => withLevel(a, b, lv));
 }
 
-// Añade un hueco de `len` segundos centrado en `center`, dentro del espacio libre.
-export function addZone(zones, center, { len = 5, max, min = 0.5 } = {}) {
+// Añade un tramo de `len` segundos centrado en `center`, dentro del espacio libre.
+export function addZone(zones, center, { len = 5, max, min = 0.5, level } = {}) {
   const sorted = normalizeZones(zones, { min: 0, max });
   let lo = 0, hi = max;
   for (const [a, b] of sorted) {
-    if (center >= a && center < b) center = b + len / 2; // sobre otro hueco: justo después
+    if (center >= a && center < b) center = b + len / 2; // sobre otro tramo: justo después
   }
   for (const [a, b] of sorted) { if (b <= center) lo = Math.max(lo, b); if (a > center) { hi = Math.min(hi, a); break; } }
   if (lo > 0) lo += 0.2; // un respiro para que no se unan al vecino
   if (hi < max) hi -= 0.2;
   let a = Math.max(lo, center - len / 2), b = Math.min(hi, a + len);
   a = Math.max(lo, b - len);
-  return b - a >= min ? normalizeZones([...sorted, [a, b]], { min, max }) : sorted;
+  return b - a >= min ? normalizeZones([...sorted, level === undefined ? [a, b] : [a, b, level]], { min, max }) : sorted;
+}
+
+// Pone el mismo nivel (0–1) a los tramos indicados (todos si no se indica `which`).
+export function setLevel(zones, level, which = null) {
+  const lv = Math.max(0, Math.min(1, level));
+  return zones.map(([a, b], i) => (!which || which.includes(i) ? [a, b, lv] : zones[i]));
+}
+
+// Sube o baja el nivel de los tramos indicados `delta` (en 0–1) desde el que tenga cada uno.
+export function shiftLevel(zones, delta, which = null) {
+  return zones.map((z, i) => (!which || which.includes(i) ? [z[0], z[1], Math.max(0, Math.min(1, (z[2] === undefined ? 0 : z[2]) + delta))] : z));
 }
 
 // Acerca un instante al punto más próximo de `points` si está a menos de `tol` segundos.

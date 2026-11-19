@@ -37,6 +37,7 @@ class MixSource {
     this.target = stems.map(() => 1);
     this.current = stems.map(() => 1);
     this.zones = new Int32Array(0); // [ini0, fin0, ini1, fin1, …] ordenadas
+    this.levels = new Float32Array(0); // nivel de voz de cada tramo (0 = silencio, 1 = normal)
     this.gated = stems.map(() => false);
     this.gate = 1; // estado suavizado de la puerta (1 = abierta)
     this.env = new Float32Array(0);
@@ -44,8 +45,10 @@ class MixSource {
     this.click = null;
   }
 
-  setZones(zones, gated) {
+  setZones(zones, gated, levels) {
     this.zones = zones instanceof Int32Array ? zones : Int32Array.from(zones || []);
+    this.levels = new Float32Array(this.zones.length / 2);
+    if (levels) for (let i = 0; i < this.levels.length; i++) this.levels[i] = Math.max(0, Math.min(1, Number(levels[i]) || 0));
     this.gated = this.stems.map((_, k) => Boolean(gated && gated[k]));
   }
 
@@ -65,7 +68,7 @@ class MixSource {
     for (let i = 0; i < frames; i++) {
       const p = position + i;
       while (zi < n && z[zi * 2 + 1] <= p) zi++;
-      const target = zi < n && p >= z[zi * 2] ? 0 : 1;
+      const target = zi < n && p >= z[zi * 2] ? this.levels[zi] : 1;
       gate += (target - gate) * GATE_COEF;
       env[i] = gate;
     }
@@ -199,7 +202,7 @@ export class MixEngine {
     if (was !== this.direct && this.started) this.filter.clear();
   }
   setGain(index, value) { this.source.target[index] = Math.max(0, Math.min(1.5, value)); }
-  setZones(zones, gated) { this.source.setZones(zones, gated); }
+  setZones(zones, gated, levels) { this.source.setZones(zones, gated, levels); }
   seek(frame) { // en frames de la canción; con cuenta atrás activa admite valores negativos
     this.filter.sourcePosition = Math.max(-this.source.pad, Math.min(this.source.length, Math.floor(frame))) + this.source.pad;
     this.ended = false;
@@ -240,12 +243,12 @@ export class MixEngine {
 
 // Exporta la mezcla actual (volúmenes, tempo y tono) a WAV de 16 bits.
 // onProgress(0..1); shouldCancel() permite abortar. Cede el hilo entre bloques.
-export async function renderToWav(stems, { gains, tempo, semitones, sampleRate, onProgress, shouldCancel, vocal = [], startFrame = 0, zones = null, gated = null, click = null }) {
+export async function renderToWav(stems, { gains, tempo, semitones, sampleRate, onProgress, shouldCancel, vocal = [], startFrame = 0, zones = null, gated = null, levels = null, click = null }) {
   const engine = new MixEngine(stems, vocal);
   gains.forEach((g, i) => { engine.setGain(i, g); engine.source.current[i] = g; });
   engine.setTempo(tempo);
   engine.setSemitones(semitones);
-  if (zones && zones.length) engine.setZones(zones, gated);
+  if (zones && zones.length) engine.setZones(zones, gated, levels);
   if (click) engine.setClick(click);
   const lead = click && click.count > 0 ? Math.ceil(click.count * click.period * (click.countStep || 1)) : 0; // la claqueta va antes del inicio
   const from = Math.max(-engine.source.pad, Math.min(engine.length, Math.floor(startFrame) - lead));

@@ -99,7 +99,28 @@
           <span id="time" class="time">0:00 / 0:00</span>
         </div>
 
+        <div class="control control-export">
+          <span class="label">Guardar la mezcla</span>
+          <div class="export-row">
+            <button id="export-wav" class="btn btn-primary" type="button">WAV</button>
+            <button id="export-mp3" class="btn btn-primary" type="button">MP3</button>
+          </div>
+          <div id="export-status" class="control-foot muted" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div class="card estudio" id="estudio">
+        <div class="tabbar" role="tablist" aria-label="Herramientas de la pista">
+          <button class="tab-btn" role="tab" id="tabbtn-sonido" data-tab="sonido" aria-selected="true" aria-controls="tab-sonido" type="button">Sonido</button>
+          <button class="tab-btn" role="tab" id="tabbtn-voz" data-tab="voz" aria-selected="false" aria-controls="tab-voz" type="button">Voz por tramos</button>
+          <button class="tab-btn" role="tab" id="tabbtn-grabar" data-tab="grabar" aria-selected="false" aria-controls="tab-grabar" type="button">Grabar</button>
+          <button class="tab-btn" role="tab" id="tabbtn-pulso" data-tab="pulso" aria-selected="false" aria-controls="tab-pulso" type="button">Pulso</button>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" id="tab-sonido" aria-labelledby="tabbtn-sonido">
+          <div class="panel-grid">
         <div class="control">
+          <div id="speed-name" class="tempo-name" aria-live="polite"></div>
           <label for="speed" class="label">Velocidad <b id="speed-out">100 %</b></label>
           <input id="speed" type="range" min="50" max="150" step="5" value="100">
           <div class="control-foot"><span id="speed-bpm" class="muted"></span><button id="speed-reset" class="link" type="button">Restablecer</button></div>
@@ -125,104 +146,130 @@
           </div>
         </div>
 
-        <div class="control control-export">
-          <span class="label">Guardar la mezcla</span>
-          <div class="export-row">
-            <button id="export-wav" class="btn btn-primary" type="button">WAV</button>
-            <button id="export-mp3" class="btn btn-primary" type="button">MP3</button>
           </div>
-          <div id="export-status" class="control-foot muted" aria-live="polite"></div>
-        </div>
-      </div>
-
-      <details class="card estudio" id="estudio" open>
-        <summary>Pista de estudio <span class="muted">Quitar el principio y cortar la voz</span></summary>
-
-        <div class="estudio-block">
-          <div class="estudio-row">
-            <label class="check"><input id="trim-on" type="checkbox"> <span>Quitar el principio</span></label>
-            <span id="trim-opts" class="estudio-row" hidden>
-              <span class="label">Empieza en <b id="start-out">0:00</b></span>
-              <button id="start-listen" class="btn btn-soft" type="button">Probar</button>
-            </span>
-          </div>
-          <p id="trim-help" class="muted" hidden>Arrastra la pestaña naranja de la franja "Edición", encima de las ondas.</p>
         </div>
 
-        <div class="estudio-block">
-          <span class="label" id="voz-mode-label">Voz del cantante</span>
-          <div class="presets" role="group" aria-labelledby="voz-mode-label">
-            <button class="btn btn-soft" data-vozmode="normal" aria-pressed="true" type="button">Normal</button>
-            <button class="btn btn-soft" data-vozmode="sorpresa" aria-pressed="false" type="button">Sorpresa</button>
-            <button class="btn btn-soft" data-vozmode="ayuda" aria-pressed="false" type="button">Ayuda</button>
+        <div class="tabpanel" role="tabpanel" id="tab-voz" aria-labelledby="tabbtn-voz" hidden>
+          <div class="panel-grid">
+            <div class="mini-card mini-peach">
+              <b>Ayuda de entradas</b>
+              <p class="muted">La voz suena al empezar cada frase y luego se esconde hasta la siguiente.</p>
+              <div class="estudio-row">
+                <label class="label" for="ayuda-seg">La voz dura</label>
+                <select id="ayuda-seg">
+                  <option value="2">2 segundos</option>
+                  <option value="3">3 segundos</option>
+                  <option value="4" selected>4 segundos</option>
+                  <option value="6">6 segundos</option>
+                  <option value="8">8 segundos</option>
+                </select>
+                <button id="ayuda-apply" class="btn btn-primary" type="button">Aplicar</button>
+              </div>
+            </div>
+            <div class="mini-card mini-yellow">
+              <b>Voz sorpresa</b>
+              <p class="muted">La voz desaparece sola en momentos clave, sin avisar.</p>
+              <div class="estudio-row">
+                <label class="label" for="sorpresa-nivel">Silencio</label>
+                <select id="sorpresa-nivel">
+                  <option value="pocos">Poco</option>
+                  <option value="normales" selected>Medio</option>
+                  <option value="muchos">Mucho</option>
+                </select>
+                <button id="sorpresa-apply" class="btn btn-primary" type="button">Aplicar</button>
+              </div>
+            </div>
           </div>
-          <div id="sorpresa-opts" class="estudio-row" hidden>
-            <label class="label" for="sorpresa-nivel">Cuántos cortes</label>
-            <select id="sorpresa-nivel">
-              <option value="pocos">Pocos</option>
-              <option value="normales" selected>Normales</option>
-              <option value="muchos">Muchos</option>
-            </select>
-            <button id="sorpresa-otra" class="btn btn-soft" type="button">Otra versión</button>
-            <button id="zone-add" class="btn btn-soft" type="button">+ Añadir hueco</button>
+          <div class="estudio-block">
+            <span class="label">Ajustar la voz de los tramos <span class="muted">· pulsa un tramo de la franja para elegirlo (con Mayús, varios)</span></span>
+            <div class="estudio-row">
+              <span class="label">Aplicar a</span>
+              <span class="presets" role="group" aria-label="Qué tramos se ajustan">
+                <button class="btn btn-soft" type="button" data-target="one" aria-pressed="false">Este tramo</button>
+                <button class="btn btn-soft" type="button" data-target="all" aria-pressed="true">Todos los tramos <span id="zone-count"></span></button>
+              </span>
+            </div>
+            <div class="estudio-row">
+              <label class="label" for="zone-level">Voz <b id="zone-level-out">0 %</b></label>
+              <input id="zone-level" type="range" min="0" max="100" step="5" value="0">
+              <span class="muted">0 % = silencio total</span>
+            </div>
+            <div class="estudio-row">
+              <span class="label">Atajos</span>
+              <span class="presets">
+                <button class="btn btn-soft" type="button" data-level="0">Sin voz</button>
+                <button class="btn btn-soft" type="button" data-level="10">10 %</button>
+                <button class="btn btn-soft" type="button" data-level="25">25 %</button>
+                <button class="btn btn-soft" type="button" data-level="50">50 %</button>
+              </span>
+              <span class="label">Subir o bajar</span>
+              <span class="presets">
+                <button class="btn btn-soft" type="button" data-shift="-10">−10</button>
+                <button class="btn btn-soft" type="button" data-shift="10">+10</button>
+                <button class="btn btn-soft" type="button" data-shift="25">+25</button>
+              </span>
+            </div>
+            <div class="estudio-row">
+              <button id="zone-add" class="btn btn-soft" type="button">+ Añadir tramo</button>
+              <label class="check"><input id="coros-follow" type="checkbox" checked> <span>Los coros siguen a la voz</span></label>
+            </div>
+            <p id="zones-help" class="muted">Arrastra los tramos para moverlos, tira de sus bordes para alargarlos o acortarlos, pulsa × para quitarlos o arrastra sobre un espacio vacío de la franja para crear uno. Las ondas se amplían con − y + o con Ctrl y la rueda.</p>
           </div>
-          <div id="ayuda-opts" class="estudio-row" hidden>
-            <label class="label" for="ayuda-seg">La voz suena al entrar</label>
-            <select id="ayuda-seg">
-              <option value="2">2 segundos</option>
-              <option value="3">3 segundos</option>
-              <option value="4" selected>4 segundos</option>
-              <option value="6">6 segundos</option>
-              <option value="8">8 segundos</option>
-            </select>
-            <label class="label" for="ayuda-gap">Entrada tras un silencio de</label>
-            <select id="ayuda-gap">
-              <option value="1">1 segundo</option>
-              <option value="1.5" selected>1,5 segundos</option>
-              <option value="2">2 segundos</option>
-              <option value="3">3 segundos</option>
-            </select>
-            <button id="zone-add-ayuda" class="btn btn-soft" type="button">+ Añadir hueco</button>
-          </div>
-          <label class="check"><input id="coros-follow" type="checkbox" checked> <span>Silenciar también los coros cuando se corta la voz</span></label>
-          <p id="zones-help" class="muted" hidden>Los huecos amarillos de la franja "Edición" son los silencios de voz (en Ayuda, todo lo que queda entre entradas). Arrástralos para moverlos, tira de sus bordes para alargarlos o acortarlos, pulsa × para quitarlos, o arrastra sobre un espacio vacío de la franja para crear uno nuevo. Las ondas se pueden ampliar con − y + o con Ctrl y la rueda.</p>
         </div>
 
-        <div class="estudio-block">
-          <span class="label">Pulso, metrónomo y claqueta</span>
-          <div class="estudio-row">
-            <label class="label" for="bpm-in">Pulso</label>
-            <input id="bpm-in" type="number" min="40" max="240" step="0.01" inputmode="decimal" aria-label="Pulso en pulsaciones por minuto">
-            <span class="muted">BPM</span>
-            <button id="bpm-half" class="pill" type="button" title="Si el clic va al doble de rápido">÷2</button>
-            <button id="bpm-double" class="pill" type="button" title="Si el clic va a la mitad de rápido">×2</button>
-            <button id="beat-auto" class="btn btn-soft" type="button" title="Prueba otro de los tempos que la app cree posibles">Otro tempo</button>
+        <div class="tabpanel" role="tabpanel" id="tab-grabar" aria-labelledby="tabbtn-grabar" hidden>
+          <div class="estudio-block no-rule">
+            <div class="estudio-row">
+              <label class="check"><input id="trim-on" type="checkbox"> <span>Empezar la pista en otro punto</span></label>
+              <span id="trim-opts" class="estudio-row" hidden>
+                <span class="label">Empieza en <b id="start-out">0:00</b></span>
+                <button id="start-detect" class="btn btn-soft" type="button">Detectar inicio</button>
+                <button id="start-listen" class="btn btn-soft" type="button">Probar</button>
+              </span>
+            </div>
+            <p id="trim-help" class="muted" hidden>Arrastra la marca naranja de la franja encima de las ondas, donde quieras (sin imán). Lo anterior no suena.</p>
           </div>
-          <div class="estudio-row">
-            <span class="label">Metrónomo</span>
-            <span class="presets" role="group" aria-label="Metrónomo">
-              <button class="btn btn-soft" type="button" data-metro="0" aria-pressed="true">Sin</button>
-              <button class="btn btn-soft" type="button" data-metro="2" aria-pressed="false">Medio tiempo</button>
-              <button class="btn btn-soft" type="button" data-metro="1" aria-pressed="false">Tiempo real</button>
-              <button class="btn btn-soft" type="button" data-metro="0.5" aria-pressed="false">Doble tiempo</button>
-            </span>
-            <button id="metro-flip" class="btn btn-soft" type="button" hidden title="Si los clics caen en el contratiempo, cámbialos al otro golpe">Cambiar de tiempo</button>
+          <div class="estudio-block">
+            <div class="estudio-row">
+              <span class="label">Claqueta</span>
+              <span class="presets" role="group" aria-label="Claqueta inicial">
+                <button class="btn btn-soft" type="button" data-count="0" aria-pressed="true">Sin</button>
+                <button class="btn btn-soft" type="button" data-count="4" aria-pressed="false">4 tiempos</button>
+                <button class="btn btn-soft" type="button" data-count="8" aria-pressed="false">8 tiempos</button>
+              </span>
+              <span id="cstep-opts" class="presets" role="group" aria-label="Velocidad de la claqueta" hidden>
+                <button class="btn btn-soft" type="button" data-cstep="2" aria-pressed="false">Más lenta</button>
+                <button class="btn btn-soft" type="button" data-cstep="1" aria-pressed="true">Al pulso</button>
+                <button class="btn btn-soft" type="button" data-cstep="0.5" aria-pressed="false">Más rápida</button>
+              </span>
+            </div>
+            <div class="estudio-row">
+              <span class="label">Metrónomo</span>
+              <span class="presets" role="group" aria-label="Metrónomo">
+                <button class="btn btn-soft" type="button" data-metro="0" aria-pressed="true">Sin</button>
+                <button class="btn btn-soft" type="button" data-metro="2" aria-pressed="false">Medio tiempo</button>
+                <button class="btn btn-soft" type="button" data-metro="1" aria-pressed="false">Tiempo real</button>
+                <button class="btn btn-soft" type="button" data-metro="0.5" aria-pressed="false">Doble tiempo</button>
+              </span>
+              <button id="metro-flip" class="btn btn-soft" type="button" hidden title="Si los clics caen en el contratiempo, cámbialos al otro golpe">Cambiar de tiempo</button>
+            </div>
+            <div class="estudio-row"><button id="click-listen" class="btn btn-soft" type="button">Probar desde el inicio</button></div>
+            <p id="beat-help" class="muted" hidden>Dale a Probar y comprueba que los clics caen con la música. Si no encajan, ajusta el pulso en la pestaña "Pulso". Con 8 tiempos, el quinto suena más agudo.</p>
           </div>
-          <div class="estudio-row">
-            <span class="label">Claqueta</span>
-            <span class="presets" role="group" aria-label="Claqueta inicial">
-              <button class="btn btn-soft" type="button" data-count="0" aria-pressed="true">Sin</button>
-              <button class="btn btn-soft" type="button" data-count="4" aria-pressed="false">4 tiempos</button>
-              <button class="btn btn-soft" type="button" data-count="8" aria-pressed="false">8 tiempos</button>
-            </span>
-            <span id="cstep-opts" class="presets" role="group" aria-label="Velocidad de la claqueta" hidden>
-              <button class="btn btn-soft" type="button" data-cstep="2" aria-pressed="false">Más lenta</button>
-              <button class="btn btn-soft" type="button" data-cstep="1" aria-pressed="true">Al pulso</button>
-              <button class="btn btn-soft" type="button" data-cstep="0.5" aria-pressed="false">Más rápida</button>
-            </span>
-            <button id="click-listen" class="btn btn-soft" type="button">Probar desde el inicio</button>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" id="tab-pulso" aria-labelledby="tabbtn-pulso" hidden>
+          <div class="estudio-block no-rule">
+            <div class="estudio-row">
+              <label class="label" for="bpm-in">Pulso</label>
+              <input id="bpm-in" type="number" min="40" max="240" step="0.01" inputmode="decimal" aria-label="Pulso en pulsaciones por minuto">
+              <span class="muted">BPM</span>
+              <button id="bpm-half" class="pill" type="button" title="Si el clic va al doble de rápido">÷2</button>
+              <button id="bpm-double" class="pill" type="button" title="Si el clic va a la mitad de rápido">×2</button>
+              <button id="beat-auto" class="btn btn-soft" type="button" title="Prueba otro de los tempos que la app cree posibles">Otro tempo</button>
+            </div>
+            <p class="muted">Las rayitas de la franja marcan los pulsos cuando hay claqueta o metrónomo. Para comprobarlo, actívalos en "Grabar" y dale a Probar.</p>
           </div>
-          <p id="beat-help" class="muted" hidden>Dale a Probar y comprueba que los clics caen con la música. Si no encajan, prueba "Otro tempo"; si van al doble o a la mitad, usa ÷2 o ×2; también puedes teclear el pulso exacto. En Medio tiempo, si suena en el contratiempo, pulsa "Cambiar de tiempo". Con 8 tiempos, el quinto suena más agudo. Las rayitas de la franja Edición marcan los pulsos.</p>
           <details id="afinar" class="estudio-block">
             <summary class="muted">Afinar</summary>
             <div class="estudio-row">
@@ -234,6 +281,8 @@
               <input id="metro-vol" type="range" min="10" max="100" value="60">
             </div>
           </details>
+        </div>
+      </div>
         </div>
       </details>
     </section>

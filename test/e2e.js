@@ -114,10 +114,10 @@ app.whenReady().then(async () => {
     check('arrastrar la pestaña naranja mueve el inicio', startTxt !== before && !!(await ev(win, `document.querySelector('#wave-0 .startmark')`)), `${before} → ${startTxt}`);
 
     await ev(win, `document.getElementById('trim-on').click()`); // la canción de prueba es muy corta: Sorpresa sin recorte
-    await ev(win, `document.querySelector('[data-vozmode="sorpresa"]').click()`);
-    check('Sorpresa se activa y muestra sus opciones', await ev(win, `!document.getElementById('sorpresa-opts').hidden && document.querySelector('[data-vozmode="sorpresa"]').getAttribute('aria-pressed') === 'true'`));
+    await ev(win, `document.querySelector('[data-tab="voz"]').click()`);
+    check('La pestaña Voz por tramos se abre', await ev(win, `!document.getElementById('tab-voz').hidden && document.getElementById('tab-sonido').hidden`));
     const nBars = () => ev(win, `document.querySelectorAll('#strip-lane .zbar:not(.ghost)').length`);
-    await ev(win, `document.getElementById('sorpresa-nivel').value = 'muchos'; document.getElementById('sorpresa-nivel').dispatchEvent(new Event('change'));`);
+    await ev(win, `document.getElementById('sorpresa-nivel').value = 'muchos'; document.getElementById('sorpresa-apply').click();`);
     if ((await nBars()) === 0) await ev(win, `document.getElementById('zone-add').click()`); // canción de prueba muy corta: puede que no haya propuesta
     let n0 = await nBars();
     console.log('  huecos propuestos:', n0, '| sombreados en la voz:', await ev(win, `document.querySelectorAll('#wave-0 .zone').length`), '| en los coros:', await ev(win, `document.querySelectorAll('#wave-1 .zone').length`));
@@ -141,6 +141,12 @@ app.whenReady().then(async () => {
     await ev(win, `(() => { document.querySelectorAll('#strip-lane .zbar .zx').forEach((x) => x.click()); })()`);
     await ev(win, ptr('#strip-lane', 'pointerdown', 0.55)); await ev(win, ptr('#strip-lane', 'pointermove', 0.8)); await ev(win, ptr('#strip-lane', 'pointerup', 0.8));
     check('arrastrar sobre la franja vacía crea un hueco', (await nBars()) === 1);
+    await ev(win, `document.querySelector('[data-target="all"]').click(); document.querySelector('[data-level="25"]').click()`);
+    check('el nivel de voz 25 % se ve en el tramo y se aplica al motor', (await ev(win, `document.querySelector('#strip-lane .zbar .zl').textContent`)) === '25 %' && (await ev(win, `document.getElementById('zone-level').value`)) === '25');
+    await ev(win, `document.querySelector('[data-shift="-10"]').click()`);
+    check('bajar 10 deja el tramo al 15 %', (await ev(win, `document.querySelector('#strip-lane .zbar .zl').textContent`)) === '15 %');
+    await ev(win, `document.querySelector('[data-level="0"]').click()`);
+    check('Sin voz pone el tramo a cero', (await ev(win, `document.querySelector('#strip-lane .zbar .zl').textContent`)) === 'Sin voz');
     // zoom
     await ev(win, `document.getElementById('zoom-in').click(); document.getElementById('zoom-in').click();`);
     check('el zoom amplía las ondas y aparece el desplazador', (await ev(win, `document.getElementById('zoom-out-txt').textContent`)).startsWith('×') && (await ev(win, `!document.getElementById('strip-pan').hidden`)));
@@ -171,16 +177,16 @@ app.whenReady().then(async () => {
 
     // modo Ayuda, metrónomo y claqueta
     await ev(win, `document.getElementById('trim-on').click()`); // sin recorte: el inicio es 0
-    await ev(win, `document.querySelector('[data-vozmode="ayuda"]').click()`);
-    check('Ayuda se activa y muestra sus opciones', await ev(win, `!document.getElementById('ayuda-opts').hidden && document.querySelector('[data-vozmode="ayuda"]').getAttribute('aria-pressed') === 'true'`));
+    await ev(win, `document.getElementById('ayuda-apply').click()`);
     console.log('  huecos de Ayuda:', await ev(win, `document.querySelectorAll('#strip-lane .zbar:not(.ghost)').length`));
-    await ev(win, `document.querySelector('[data-vozmode="normal"]').click()`);
+    await ev(win, `(() => { document.querySelectorAll('#strip-lane .zbar .zx').forEach((x) => x.click()); })()`);
     check('el metrónomo y la claqueta enseñan sus controles de pulso', await ev(win, `(() => { document.querySelector('[data-metro="2"]').click(); const f = !document.getElementById('metro-flip').hidden; document.querySelector('[data-metro="1"]').click(); document.querySelector('[data-count="8"]').click(); return f && !document.getElementById('cstep-opts').hidden; })()`));
     const bpmTxt = await ev(win, `document.getElementById('bpm-in').value`);
     const bpmNum = parseFloat(bpmTxt);
     check('el pulso detectado es un tempo razonable', bpmNum > 50 && bpmNum < 220, `${bpmTxt} BPM`);
     await ev(win, `document.getElementById('bpm-half').click(); document.getElementById('bpm-double').click();`);
-    check('×2 y ÷2 vuelven al mismo tempo', parseFloat(await ev(win, `document.getElementById('bpm-in').value`)) === bpmNum);
+    const bpmBack = parseFloat(await ev(win, `document.getElementById('bpm-in').value`));
+    check('×2 y ÷2 vuelven al mismo tempo', Math.abs(bpmBack - bpmNum) <= 0.05, `${bpmNum} → ${bpmBack}`); // el redondeo a 0,01 puede mover una centésima
     await ev(win, `(() => { const i = document.getElementById('bpm-in'); i.value = '100.5'; i.dispatchEvent(new Event('change')); })()`);
     check('el pulso tecleado cambia también el tempo de arriba', (await ev(win, `document.getElementById('chip-bpm').textContent`)).startsWith('100.5'));
     await ev(win, `(() => { const i = document.getElementById('bpm-in'); i.value = '${bpmNum}'; i.dispatchEvent(new Event('change')); })()`);

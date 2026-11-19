@@ -179,3 +179,13 @@ test('a tempo y tono originales el audio sale idéntico y al cambiar de modo en 
   eng.setTempo(1); eng.render(L, R, 4096);
   assert.ok(L.every(Number.isFinite) && eng.position > 4096);
 });
+
+test('un tramo con voz al 25 % deja pasar un cuarto de la voz y el silencio total, nada', async () => {
+  const n = 6 * SR, v = new Float32Array(n).fill(0.8), m = new Float32Array(n).fill(0.2);
+  const zones = Int32Array.from([1 * SR, 2 * SR, 3 * SR, 4 * SR]);
+  const x = await wavSamples(await renderToWav([{ l: v, r: v.slice() }, { l: m, r: m.slice() }], { gains: [1, 1], semitones: 0, tempo: 1, sampleRate: SR, zones, gated: [true, false], levels: [0.25, 0] }));
+  const at = (t) => x[Math.floor(t * SR)];
+  assert.ok(Math.abs(at(0.5) - 1.0) < 0.02, `fuera ${at(0.5)}`);
+  assert.ok(Math.abs(at(1.5) - (0.8 * 0.25 + 0.2)) < 0.02, `al 25 % ${at(1.5)}`);
+  assert.ok(Math.abs(at(3.5) - 0.2) < 0.02, `en silencio ${at(3.5)}`);
+});
