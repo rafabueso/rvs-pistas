@@ -30,7 +30,7 @@ const base = { gains: [1], semitones: 0, sampleRate: SR };
 
 test('metrónomo: un clic por pulso, en su sitio', async () => {
   const P = 0.5 * SR, g0 = 0.2 * SR;
-  const x = await wavSamples(await renderToWav([silence(6)], { ...base, tempo: 1, click: { period: P, g0, start: 0, every: 1, vol: 1, count: 0, countVol: 1 } }));
+  const x = await wavSamples(await renderToWav([silence(6)], { ...base, tempo: 1, click: { period: P, g0, start: 0, step: 1, vol: 1, count: 0, countVol: 1 } }));
   const o = onsets(x);
   assert.ok(o.length >= 11, `clics ${o.length}`);
   assert.ok(Math.abs(o[0] - 0.2) < 0.01, `primero en ${o[0]}`);
@@ -38,20 +38,20 @@ test('metrónomo: un clic por pulso, en su sitio', async () => {
 });
 
 test('medio tempo: un clic cada dos pulsos', async () => {
-  const x = await wavSamples(await renderToWav([silence(6)], { ...base, tempo: 1, click: { period: 0.5 * SR, g0: 0, start: 0, every: 2, vol: 1, count: 0, countVol: 1 } }));
+  const x = await wavSamples(await renderToWav([silence(6)], { ...base, tempo: 1, click: { period: 0.5 * SR, g0: 0, start: 0, step: 2, vol: 1, count: 0, countVol: 1 } }));
   const o = onsets(x);
   assert.ok(Math.abs(o[1] - o[0] - 1) < 0.01, `separación ${o[1] - o[0]}`);
 });
 
 test('con velocidad 75 % los clics siguen al ritmo de la música (cada 0,5 s de canción = 0,667 s de salida)', async () => {
-  const x = await wavSamples(await renderToWav([silence(8)], { ...base, tempo: 0.75, click: { period: 0.5 * SR, g0: 0, start: 0, every: 1, vol: 1, count: 0, countVol: 1 } }));
+  const x = await wavSamples(await renderToWav([silence(8)], { ...base, tempo: 0.75, click: { period: 0.5 * SR, g0: 0, start: 0, step: 1, vol: 1, count: 0, countVol: 1 } }));
   const o = onsets(x);
   assert.ok(o.length > 8, `clics ${o.length}`);
   assert.ok(Math.abs(o[3] - o[2] - 0.5 / 0.75) < 0.02, `separación ${o[3] - o[2]}`);
 });
 
 test('con +2 semitonos el clic conserva su tono', async () => {
-  const x = await wavSamples(await renderToWav([silence(5)], { ...base, tempo: 1, semitones: 2, click: { period: 0.5 * SR, g0: 0, start: 0, every: 1, vol: 1, count: 0, countVol: 1 } }));
+  const x = await wavSamples(await renderToWav([silence(5)], { ...base, tempo: 1, semitones: 2, click: { period: 0.5 * SR, g0: 0, start: 0, step: 1, vol: 1, count: 0, countVol: 1 } }));
   const o = onsets(x);
   const hz = clickHz(x, o[2] + 0.003);
   assert.ok(Math.abs(hz - CLICK_HZ.metro) < 120, `tono ${hz}`);
@@ -59,7 +59,7 @@ test('con +2 semitonos el clic conserva su tono', async () => {
 
 test('claqueta de 8: ocho clics antes del inicio y el 5 suena más agudo', async () => {
   const P = 0.5 * SR, start = 2 * SR;
-  const x = await wavSamples(await renderToWav([silence(8)], { ...base, tempo: 1, startFrame: start, click: { period: P, g0: 0, start, every: 0, vol: 0, count: 8, countVol: 0.8 } }));
+  const x = await wavSamples(await renderToWav([silence(8)], { ...base, tempo: 1, startFrame: start, click: { period: P, g0: 0, start, step: 0, vol: 0, count: 8, countVol: 0.8 } }));
   const o = onsets(x).filter((t) => t < 4.2);
   assert.equal(o.length, 8, `clics ${o.length}`);
   assert.ok(Math.abs(o[0]) < 0.02, 'el primero abre el archivo');
@@ -72,7 +72,7 @@ test('claqueta de 8: ocho clics antes del inicio y el 5 suena más agudo', async
 
 test('claqueta de 4: cuatro clics iguales', async () => {
   const P = 0.5 * SR, start = 1 * SR;
-  const x = await wavSamples(await renderToWav([silence(5)], { ...base, tempo: 1, startFrame: start, click: { period: P, g0: 0, start, every: 0, vol: 0, count: 4, countVol: 0.8 } }));
+  const x = await wavSamples(await renderToWav([silence(5)], { ...base, tempo: 1, startFrame: start, click: { period: P, g0: 0, start, step: 0, vol: 0, count: 4, countVol: 0.8 } }));
   const o = onsets(x).filter((t) => t < 2.2);
   assert.equal(o.length, 4);
   const hz = o.map((t) => clickHz(x, t + 0.003));
@@ -114,4 +114,42 @@ test('estimación del pulso con corcheas (golpes cada 0,25 s, acento cada 0,5 s)
   }
   const r = estimateBeats([{ l, r: l }], SR, 130);
   assert.ok(Math.abs(r.bpm - 120) < 1, `bpm ${r.bpm}`);
+});
+
+test('medio tempo: la paridad elige entre los pulsos 1-3-5 y 2-4-6', async () => {
+  const mk = (parity) => ({ ...base, tempo: 1, click: { period: 0.5 * SR, g0: 0, start: 0, step: 2, parity, vol: 1, count: 0, countVol: 1 } });
+  const a = onsets(await wavSamples(await renderToWav([silence(6)], mk(0))));
+  const b = onsets(await wavSamples(await renderToWav([silence(6)], mk(1))));
+  assert.ok(Math.abs(a[0] - 0) < 0.02 && Math.abs(b[0] - 0.5) < 0.02, `${a[0]} y ${b[0]}`);
+  assert.ok(Math.abs(a[1] - a[0] - 1) < 0.02 && Math.abs(b[1] - b[0] - 1) < 0.02);
+});
+
+test('doble tempo: un clic cada medio pulso', async () => {
+  const o = onsets(await wavSamples(await renderToWav([silence(4)], { ...base, tempo: 1, click: { period: 0.5 * SR, g0: 0, start: 0, step: 0.5, parity: 0, vol: 1, count: 0, countVol: 1 } })));
+  assert.ok(Math.abs(o[1] - o[0] - 0.25) < 0.02, `separación ${o[1] - o[0]}`);
+});
+
+test('el inicio puede estar fuera de la rejilla: la claqueta sigue al inicio y el metrónomo a la rejilla', async () => {
+  const P = 0.5 * SR, start = 2.13 * SR; // 2,13 s no cae en un pulso (0, 0,5, 1…)
+  const x = await wavSamples(await renderToWav([silence(8)], { ...base, tempo: 1, startFrame: start, click: { period: P, g0: 0, start, step: 1, parity: 0, vol: 1, count: 4, countStep: 1, countVol: 0.8 } }));
+  const o = onsets(x);
+  assert.ok(Math.abs(o[3] - 1.5) < 0.02, `el cuarto de la claqueta en ${o[3]}`); // 4 pulsos de 0,5 s antes de 2,13 → termina en 1,5 desde el inicio del archivo (0,13+... )
+  assert.ok(Math.abs(o[4] - (2.5 - 0.13 + 0.13) + 0) < 1, 'hay clics del metrónomo después');
+});
+
+test('claqueta a la mitad de velocidad: los clics van cada dos pulsos y 4 duran 4 s', async () => {
+  const P = 0.5 * SR, start = 1 * SR;
+  const x = await wavSamples(await renderToWav([silence(6)], { ...base, tempo: 1, startFrame: start, click: { period: P, g0: 0, start, step: 0, parity: 0, vol: 0, count: 4, countStep: 2, countVol: 0.8 } }));
+  const o = onsets(x).filter((t) => t < 4.2);
+  assert.equal(o.length, 4);
+  assert.ok(Math.abs(o[1] - o[0] - 1) < 0.02, `separación ${o[1] - o[0]}`);
+  assert.ok(Math.abs(x.length / SR - (4 + 5)) < 0.1, `duración ${x.length / SR}`);
+});
+
+test('claqueta al doble de velocidad: 8 clics en 2 s', async () => {
+  const P = 0.5 * SR, start = 0.5 * SR;
+  const x = await wavSamples(await renderToWav([silence(4)], { ...base, tempo: 1, startFrame: start, click: { period: P, g0: 0, start, step: 0, parity: 0, vol: 0, count: 8, countStep: 0.5, countVol: 0.8 } }));
+  const o = onsets(x).filter((t) => t < 2.3);
+  assert.equal(o.length, 8);
+  assert.ok(Math.abs(o[1] - o[0] - 0.25) < 0.02);
 });

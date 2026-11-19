@@ -121,18 +121,20 @@ class MixSource {
     const c = this.click, P = c.period;
     if (!(P > 100)) return;
     const lo = q0 - CLICK_LEN, hi = q0 + frames;
-    if (c.count > 0) { // cuenta atrás: termina un pulso antes del inicio
+    if (c.count > 0) { // claqueta: termina un paso antes del inicio
+      const gap = P * (c.countStep || 1);
       for (let i = 1; i <= c.count; i++) {
-        const b = Math.round(c.start - (c.count - i + 1) * P);
+        const b = Math.round(c.start - (c.count - i + 1) * gap);
         if (b >= lo && b < hi) this.blip(out, q0, frames, b, c.count === 8 && i === 5 ? CLICK_HZ.accent : CLICK_HZ.count, c.countVol);
       }
     }
-    if (c.every > 0 && c.vol > 0) { // metrónomo sobre la rejilla, desde el inicio
-      const k0 = Math.ceil((lo - c.g0) / P), k1 = Math.floor((hi - c.g0) / P);
-      const kStart = Math.ceil((c.start - c.g0) / P - 1e-9);
-      for (let k = k0; k <= k1; k++) {
-        const b = Math.round(c.g0 + k * P);
-        if (b < c.start - 1 || (k - kStart) % c.every !== 0) continue;
+    if (c.step > 0 && c.vol > 0) { // metrónomo sobre la rejilla, desde el inicio
+      const Ps = P * c.step;
+      const shift = c.step === 2 && c.parity ? P : 0;
+      const j0 = Math.ceil((c.start - shift - c.g0) / Ps - 1e-9); // primer clic desde el inicio
+      const n0 = Math.max(0, Math.ceil((lo - shift - c.g0) / Ps) - j0), n1 = Math.floor((hi - shift - c.g0) / Ps) - j0;
+      for (let n = n0; n <= n1; n++) {
+        const b = Math.round(c.g0 + shift + (j0 + n) * Ps);
         if (b >= lo && b < hi) this.blip(out, q0, frames, b, CLICK_HZ.metro, c.vol);
       }
     }
@@ -186,10 +188,12 @@ export class MixEngine {
     this.ended = false;
   }
 
-  // cfg: { period, g0, start, every (0 = sin metrónomo, 1 = cada pulso, 2 = cada dos), vol, count (0, 4 u 8), countVol }
-  // o null para quitarlo. Todo en frames de la canción.
+  // cfg: { period, g0, start, step, parity, vol, count, countStep, countVol } o null para quitarlo. Todo en frames.
+  //  step: pulsos entre clics del metrónomo (0 = sin metrónomo, 2 = medio tempo, 1 = tempo real, 0.5 = doble)
+  //  parity: con medio tempo, 0 = empieza en el primer pulso desde `start`, 1 = en el siguiente (contratiempo)
+  //  count: 0, 4 u 8 clics de claqueta; countStep: pulsos entre clics (2 = más lenta, 1 = igual, 0.5 = el doble de rápida)
   setClick(cfg) {
-    const pad = cfg && cfg.count > 0 ? Math.ceil(cfg.count * cfg.period) + 2048 : 0;
+    const pad = cfg && cfg.count > 0 ? Math.ceil(cfg.count * cfg.period * (cfg.countStep || 1)) + 2048 : 0;
     if (pad !== this.source.pad) {
       const here = this.position;
       this.source.pad = pad;
@@ -221,7 +225,7 @@ export async function renderToWav(stems, { gains, tempo, semitones, sampleRate, 
   engine.setSemitones(semitones);
   if (zones && zones.length) engine.setZones(zones, gated);
   if (click) engine.setClick(click);
-  const lead = click && click.count > 0 ? Math.ceil(click.count * click.period) : 0; // la cuenta atrás va antes del inicio
+  const lead = click && click.count > 0 ? Math.ceil(click.count * click.period * (click.countStep || 1)) : 0; // la claqueta va antes del inicio
   const from = Math.max(-engine.source.pad, Math.min(engine.length, Math.floor(startFrame) - lead));
   if (from !== 0) engine.seek(from);
   const expected = Math.ceil((engine.length - from) / tempo);
