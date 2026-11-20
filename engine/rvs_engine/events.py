@@ -4,7 +4,8 @@ import sys
 
 
 def emit(event: str, **fields) -> None:
-    sys.stdout.write(json.dumps({"event": event, **fields}, ensure_ascii=False) + "\n")
+    # ensure_ascii: en Windows la consola puede ir en cp1252 y los acentos llegaban rotos a la app
+    sys.stdout.write(json.dumps({"event": event, **fields}, ensure_ascii=True) + "\n")
     sys.stdout.flush()
 
 
